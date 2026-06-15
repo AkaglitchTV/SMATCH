@@ -340,6 +340,29 @@ function smatchAllMembers() {
   return Object.assign({}, SMATCH_MEMBERS, _smatchRegisteredMembers());
 }
 
+// ─── Chat de crew persistant (source unique partagée dashboard + notifs) ──────
+// Retourne le chat persisté pour ce crew, ou initialise avec le chat de base
+function smatchGetCrewChat(tripId, baseChat) {
+  try {
+    const stored = localStorage.getItem('snm_crewchat_' + tripId);
+    if (stored) return JSON.parse(stored);
+  } catch (e) {}
+  // Pas encore de chat persisté → on initialise avec le chat de base
+  const init = Array.isArray(baseChat) ? baseChat.slice() : [];
+  try { localStorage.setItem('snm_crewchat_' + tripId, JSON.stringify(init)); } catch (e) {}
+  return init;
+}
+function smatchSaveCrewChat(tripId, chat) {
+  try { localStorage.setItem('snm_crewchat_' + tripId, JSON.stringify((chat||[]).slice(-200))); } catch (e) {}
+}
+// Ajoute un message au chat persisté (et le retourne)
+function smatchAddCrewChatMessage(tripId, msg, baseChat) {
+  const chat = smatchGetCrewChat(tripId, baseChat);
+  chat.push(msg);
+  smatchSaveCrewChat(tripId, chat);
+  return chat;
+}
+
 /**
  * SMATCH_ADVENTURER — couche "Profil d'aventurier" (badges, fiabilité, vérif).
  * Indexée par clé membre. Source de vérité unique pour les dashboards + profil.
@@ -550,6 +573,9 @@ if (typeof window !== 'undefined') {
   window.smatchMemberKeyByName = smatchMemberKeyByName;
   window.smatchRegisterMember = smatchRegisterMember;
   window.smatchAllMembers = smatchAllMembers;
+  window.smatchGetCrewChat = smatchGetCrewChat;
+  window.smatchAddCrewChatMessage = smatchAddCrewChatMessage;
+  window.smatchSaveCrewChat = smatchSaveCrewChat;
   window.smatchComputeCompat = smatchComputeCompat;
   window.SMATCH_ADVENTURER = SMATCH_ADVENTURER;
   window.SMATCH_BADGES = SMATCH_BADGES;

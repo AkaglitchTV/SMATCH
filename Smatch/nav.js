@@ -1876,6 +1876,10 @@ function navViewMemberProfile(name) {
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;"><span style="font-size:.78rem;font-weight:700;color:#fff;">Avis communauté</span><span style="font-size:.78rem;font-weight:800;color:${AC};">${m.rating}/5 (${m.rCnt} avis)</span></div>
             ${m.comments.map(c=>`<div class="snm-card2" style="padding:.7rem;margin-bottom:.4rem;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem;"><span style="font-size:.7rem;font-weight:700;color:#fff;">${c.author}</span><span style="font-size:.68rem;color:${AC};">${'★'.repeat(c.stars)}</span></div><div style="font-size:.72rem;color:#94a3b8;">${c.text}</div></div>`).join('')}
           </div>
+          <div style="display:flex;gap:.6rem;margin-top:1rem;">
+            <button onclick="navMergeFromProfile('${m.name.replace(/'/g,"\\'")}','${mkey}')" style="flex:1.5;background:linear-gradient(135deg,${AC},${AC}cc);color:#020617;font-weight:800;font-size:.8rem;padding:.7rem;border-radius:12px;border:none;cursor:pointer;"><i class="fa-solid fa-bolt"></i> Merger</button>
+            <button onclick="document.getElementById('snm-mini-profile').remove();navOpenConvWith('${m.name.replace(/'/g,"\\'")}','${mkey}','${m.color}','${m.emoji||''}')" style="flex:1;background:rgba(30,41,59,.65);border:1px solid rgba(71,85,105,.4);color:#cbd5e1;font-weight:700;font-size:.8rem;padding:.7rem;border-radius:12px;cursor:pointer;"><i class="fa-solid fa-message"></i> Message</button>
+          </div>
         </div>
       </div>`;
   } else {
@@ -1891,6 +1895,45 @@ function navViewMemberProfile(name) {
       </div>`;
   }
   document.body.appendChild(div);
+}
+
+// Envoie une demande de merge depuis n'importe quel profil (messages, dashboard, matchs…)
+function navMergeFromProfile(name, mkey) {
+  if (typeof SmatchMerge === 'undefined') return;
+  const dir = (typeof smatchAllMembers === 'function') ? smatchAllMembers() : (window.SMATCH_MEMBERS||{});
+  const m = dir[mkey];
+  // Déjà une demande en cours ?
+  const existing = SmatchMerge.all().find(r => r.key === mkey && r.status !== 'rejected' && r.status !== 'left');
+  if (existing) {
+    if (typeof showToast === 'function') showToast('⏳ Demande déjà envoyée à ' + name);
+    const mp = document.getElementById('snm-mini-profile'); if (mp) mp.remove();
+    navOpenDemandesModal();
+    return;
+  }
+  // Enregistre le membre (au cas où) puis envoie
+  if (m && typeof smatchRegisterMember === 'function' && mkey.length > 1) {
+    smatchRegisterMember(mkey, m);
+  }
+  const sent = SmatchMerge.send({
+    key: mkey, name: name, sport: m?.sport || '', icon: m?.emoji || (NAV_STATE.mode==='ete'?'🏄':'🏂'),
+    spot: localStorage.getItem('snm_lieu') || '', compat: m?.compat || 85,
+  });
+  const mp = document.getElementById('snm-mini-profile'); if (mp) mp.remove();
+  if (sent) {
+    if (typeof showToast === 'function') showToast('⚡ Demande de merge envoyée à ' + name + ' !');
+    // Acceptation simulée
+    setTimeout(() => {
+      const r = SmatchMerge.get(sent.id);
+      if (r && r.status === 'pending') {
+        SmatchMerge.update(sent.id, { status: 'accepted', time: 'À l\'instant' });
+        navPushNotif('merge', name + ' a accepté ta demande ⚡', 'Discutez pour valider votre trip ensemble', 'demandes');
+        navRender();
+      }
+    }, 2500 + Math.random()*2000);
+    navRender();
+  } else {
+    if (typeof showToast === 'function') showToast('⏳ Demande déjà existante');
+  }
 }
 
 function navSendMessage() {
@@ -2085,15 +2128,20 @@ function navLifeEvent() {
 // Ajoute un vrai message d'un membre du crew dans le chat (cohérent avec le dashboard)
 function navAddCrewChatMessage(dash) {
   try {
+    // Récupère le trip pour connaître les membres + le chat de base
+    let trip = null;
     const fresh = JSON.parse(localStorage.getItem('snm_fresh_trips') || '{}');
-    let trip = fresh[dash.id];
-    if (!trip) {
-      if (typeof SMATCH_TRIPS !== 'undefined' && SMATCH_TRIPS[dash.id]) trip = JSON.parse(JSON.stringify(SMATCH_TRIPS[dash.id]));
-      else return null;
-    }
+    if (fresh[dash.id]) trip = fresh[dash.id];
+    else if (typeof SMATCH_TRIPS !== 'undefined' && SMATCH_TRIPS[dash.id]) trip = SMATCH_TRIPS[dash.id];
+    if (!trip) return null;
     const dir = (typeof smatchAllMembers === 'function') ? smatchAllMembers() : (typeof SMATCH_MEMBERS !== 'undefined' ? SMATCH_MEMBERS : {});
     const others = (trip.memberKeys || []).filter(k => k !== 'R' && dir[k]);
     if (!others.length) return null;
+    // Limite : pas de discussion infinie. Max 6 messages "auto" récents d'affilée.
+    const baseChat = trip.chat || [];
+    const chat = (typeof smatchGetCrewChat === 'function') ? smatchGetCrewChat(dash.id, baseChat) : baseChat;
+    const recentAuto = chat.slice(-6).filter(m => m.auto).length;
+    if (recentAuto >= 4) return null; // on laisse retomber le calme
     const k = others[Math.floor(Math.random()*others.length)];
     const member = dir[k];
     const isEte = trip.mode === 'ete';
@@ -2102,10 +2150,9 @@ function navAddCrewChatMessage(dash) {
       : ['Quelqu\'un a réservé les forfaits ? 🎿','La météo annonce de la poudreuse ! ❄️','On se retrouve où au départ ?','J\'ai hâte de rider avec vous 🏂','Pensez à prendre vos masques de rechange'];
     const text = lines[Math.floor(Math.random()*lines.length)];
     const now = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-    trip.chat = trip.chat || [];
-    trip.chat.push({ key: k, name: member.name, msg: text, time: now, me: false });
-    fresh[dash.id] = trip;
-    localStorage.setItem('snm_fresh_trips', JSON.stringify(fresh));
+    if (typeof smatchAddCrewChatMessage === 'function') {
+      smatchAddCrewChatMessage(dash.id, { key: k, name: member.name, msg: text, time: now, me: false, auto: true }, baseChat);
+    }
     return { memberName: member.name, crewName: dash.name, text, tripId: dash.id };
   } catch (e) { return null; }
 }

@@ -52,6 +52,7 @@ body { background:#020617; color:#f1f5f9; font-family:ui-sans-serif,system-ui,sa
 /* ── CHAT ────────────────────────────────────── */
 .bubble-me   { background:linear-gradient(135deg,#0891b2,#1d4ed8); border-radius:18px 18px 4px 18px; }
 .bubble-them { background:rgba(15,23,42,.95); border:1px solid rgba(30,41,59,.6); border-radius:18px 18px 18px 4px; }
+.bubble-me, .bubble-them { word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.4; }
 .chat-scroll { scrollbar-width:thin; scrollbar-color:rgba(30,41,59,.6) transparent; }
 
 /* ── STARS ───────────────────────────────────── */
@@ -369,6 +370,7 @@ function renderRoadmap() {
           </div>
         </div>
         <p class="text-slate-400 text-xs leading-relaxed">${step.sub||''}</p>
+        ${step.docs ? `<div class="mt-2 p-2.5 rounded-lg" style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.15);"><div class="flex items-center gap-1.5 mb-1"><i class="fa-solid fa-paperclip text-cyan-400" style="font-size:.65rem;"></i><span class="text-cyan-300 font-semibold" style="font-size:.65rem;">Documents & infos</span></div><div class="text-slate-300" style="font-size:.7rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${step.docs}</div></div>` : ''}
         ${extraHtml}${participate}
       </div>
     </div>`;
@@ -380,7 +382,23 @@ function renderRoadmap() {
     ${addBtn}`;
 }
 
+function _roadmapIconChoices() {
+  const icons = ['fa-flag','fa-car','fa-train','fa-plane','fa-house','fa-bed','fa-utensils','fa-mountain','fa-person-skiing','fa-champagne-glasses','fa-fire','fa-camera','fa-music','fa-trophy'];
+  return icons.map((ic,i) => `<button type="button" onclick="_selectStepIcon('${ic}',this)" data-icon="${ic}" class="step-icon-choice" style="width:38px;height:38px;border-radius:10px;background:${i===0?AC+'22':'rgba(5,8,20,.7)'};border:1px solid ${i===0?AC:'rgba(71,85,105,.4)'};color:${i===0?AC:'#94a3b8'};cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fa-solid ${ic}"></i></button>`).join('');
+}
+let _selectedStepIcon = 'fa-flag';
+function _selectStepIcon(ic, btn) {
+  _selectedStepIcon = ic;
+  document.querySelectorAll('.step-icon-choice').forEach(b => {
+    const on = b.dataset.icon === ic;
+    b.style.background = on ? AC+'22' : 'rgba(5,8,20,.7)';
+    b.style.borderColor = on ? AC : 'rgba(71,85,105,.4)';
+    b.style.color = on ? AC : '#94a3b8';
+  });
+}
+
 function openAddRoadmapStep() {
+  _selectedStepIcon = 'fa-flag';
   const ex = document.getElementById('add-step-modal'); if (ex) ex.remove();
   const modal = document.createElement('div');
   modal.id = 'add-step-modal'; modal.className = 'snm-modal-overlay';
@@ -393,13 +411,17 @@ function openAddRoadmapStep() {
         <div style="font-size:1rem;font-weight:800;color:#fff;">➕ Nouvelle étape</div>
         <button onclick="document.getElementById('add-step-modal').remove()" aria-label="Fermer" style="color:#475569;background:none;border:none;cursor:pointer;font-size:1.1rem;"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div style="padding:1.3rem;display:flex;flex-direction:column;gap:.9rem;">
+      <div style="padding:1.3rem;display:flex;flex-direction:column;gap:.9rem;max-height:65vh;overflow-y:auto;">
         <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📅 Date</label>
           <input id="step-date" type="date" value="${defaultDate}" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.55rem .7rem;color:#e2e8f0;font-size:.8rem;outline:none;"></div>
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">🎨 Icône de l'étape</label>
+          <div id="step-icon-picker" style="display:flex;flex-wrap:wrap;gap:.4rem;">${_roadmapIconChoices()}</div></div>
         <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">🏷️ Titre</label>
           <input id="step-title" type="text" placeholder="Ex : Arrivée au chalet" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.85rem;outline:none;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'"></div>
         <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📝 Description</label>
           <input id="step-sub" type="text" placeholder="Ex : Check-in 16h, install + apéro" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.85rem;outline:none;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'"></div>
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📎 Documents & infos pratiques</label>
+          <textarea id="step-docs" rows="3" placeholder="Ajoute tes plans, billets de train, réservations, liens utiles…&#10;Ex : Billet TGV 8h12 Lyon→Chambéry · Résa chalet n°4821 · Lien Google Maps du RDV" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.8rem;outline:none;resize:vertical;line-height:1.4;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'"></textarea></div>
       </div>
       <div style="padding:0 1.3rem 1.3rem;display:flex;gap:.7rem;">
         <button onclick="document.getElementById('add-step-modal').remove()" style="flex:1;background:rgba(30,41,59,.65);border:1px solid rgba(71,85,105,.4);color:#94a3b8;font-weight:700;font-size:.82rem;padding:.7rem;border-radius:12px;cursor:pointer;">Annuler</button>
@@ -414,10 +436,9 @@ function saveRoadmapStep() {
   const date = document.getElementById('step-date').value;
   const title = document.getElementById('step-title').value.trim();
   const sub = document.getElementById('step-sub').value.trim();
+  const docs = document.getElementById('step-docs').value.trim();
   if (!title) { document.getElementById('step-title').style.borderColor = '#ef4444'; return; }
-  const icons = ['fa-flag','fa-mountain','fa-utensils','fa-bed','fa-champagne-glasses','fa-person-skiing','fa-car'];
-  TRIP.roadmap.push({ date: date || TRIP.dateStart, title, sub, badge: 'Étape', icon: icons[TRIP.roadmap.length % icons.length] });
-  // Trie par date
+  TRIP.roadmap.push({ date: date || TRIP.dateStart, title, sub, docs, badge: 'Étape', icon: _selectedStepIcon || 'fa-flag' });
   TRIP.roadmap.sort((a,b) => new Date(a.date) - new Date(b.date));
   _persistRoadmap();
   if (typeof dashAddLog === 'function') dashAddLog('🗺️ Roadmap', 'Étape ajoutée : "' + title + '"');
@@ -853,17 +874,21 @@ function renderMembers(){
 //  CHAT
 // ═══════════════════════════════════════════════════════════════════════════
 function renderChat(){
+  // Source unique : chat persisté (fusionne le chat de base + messages ajoutés)
+  if (typeof smatchGetCrewChat === 'function') {
+    TRIP.chat = smatchGetCrewChat(TRIP.id, TRIP.chat || []);
+  }
   const messagesHtml=TRIP.chat.map(msg=>{
     const m=ALL_MEMBERS[msg.key];
     if(msg.me){
       return `<div class="flex flex-row-reverse gap-2 items-end">
-        <div class="w-6 h-6 rounded-full bg-gradient-to-br ${m?.color||'from-cyan-400 to-blue-600'} flex items-center justify-center ${m?.tc||'text-slate-950'} font-black text-xs flex-shrink-0">${msg.key}</div>
-        <div class="text-right"><div class="bubble-me px-3 py-2 text-xs text-white max-w-[75%] ml-auto">${msg.msg}</div><div class="text-slate-600 text-xs mt-0.5 mr-1">Toi · ${msg.time}</div></div>
+        <div class="w-6 h-6 rounded-full bg-gradient-to-br ${m?.color||'from-cyan-400 to-blue-600'} flex items-center justify-center ${m?.tc||'text-slate-950'} font-black text-xs flex-shrink-0">${avatarLetter(msg.key, m)}</div>
+        <div class="flex flex-col items-end max-w-[78%] min-w-0"><div class="bubble-me px-3.5 py-2 text-[13px] leading-snug text-white" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;">${msg.msg}</div><div class="text-slate-600 text-[11px] mt-0.5 mr-1">Toi · ${msg.time}</div></div>
       </div>`;
     }
     return `<div class="flex gap-2 items-end">
-      <div class="w-6 h-6 rounded-full bg-gradient-to-br ${m?.color||'from-slate-600 to-slate-800'} flex items-center justify-center ${m?.tc||'text-white'} font-black text-xs flex-shrink-0">${msg.key}</div>
-      <div><div class="bubble-them px-3 py-2 text-xs text-slate-200 max-w-[75%]">${msg.msg}</div><div class="text-slate-600 text-xs mt-0.5 ml-1">${msg.name} · ${msg.time}</div></div>
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br ${m?.color||'from-slate-600 to-slate-800'} flex items-center justify-center ${m?.tc||'text-white'} font-black text-xs flex-shrink-0">${avatarLetter(msg.key, m)}</div>
+      <div class="flex flex-col items-start max-w-[78%] min-w-0"><div class="bubble-them px-3.5 py-2 text-[13px] leading-snug text-slate-200" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;">${msg.msg}</div><div class="text-slate-600 text-[11px] mt-0.5 ml-1">${msg.name} · ${msg.time}</div></div>
     </div>`;
   }).join('');
 
@@ -887,9 +912,12 @@ function sendMessage(){
   const inp=document.getElementById('chatInput');const msg=inp.value.trim();if(!msg)return;
   const chat=document.getElementById('chat-messages');
   const m=ALL_MEMBERS['R'];
+  const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   const d=document.createElement('div');d.className='flex flex-row-reverse gap-2 items-end';
-  d.innerHTML=`<div class="w-6 h-6 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center ${m.tc} font-black text-xs flex-shrink-0">R</div><div class="text-right"><div class="bubble-me px-3 py-2 text-xs text-white max-w-[75%] ml-auto">${msg}</div><div class="text-slate-600 text-xs mt-0.5 mr-1">Toi · ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div></div>`;
+  d.innerHTML=`<div class="w-6 h-6 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center ${m.tc} font-black text-xs flex-shrink-0">R</div><div class="flex flex-col items-end max-w-[78%] min-w-0"><div class="bubble-me px-3.5 py-2 text-[13px] leading-snug text-white" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;">${msg}</div><div class="text-slate-600 text-[11px] mt-0.5 mr-1">Toi · ${now}</div></div>`;
   chat.appendChild(d);chat.scrollTop=chat.scrollHeight;inp.value='';
+  // Persiste le message
+  if (typeof smatchAddCrewChatMessage === 'function') smatchAddCrewChatMessage(TRIP.id, { key:'R', name:'Toi', msg, time:now, me:true }, TRIP.chat||[]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
