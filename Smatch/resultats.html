@@ -813,14 +813,41 @@ function sendMerge(key, fromModal = false) {
 }
 
 function mergeAll() {
-  const unsent = POOL.filter(m => !mergedSet.has(m.key));
+  const unsent = POOL.filter(m => !mergedSet.has(m.key) && _ageInRange(m.age, AGE_RANGE));
   if (!unsent.length) { showToast('✓', 'Tout le monde a déjà reçu ta demande !', '#34d399'); return; }
-  unsent.forEach(m => mergedSet.add(m.key));
+  let sentCount = 0;
+  unsent.forEach(m => {
+    mergedSet.add(m.key);
+    // Enregistre le membre (pour les clés non-annuaire) puis envoie une VRAIE demande
+    if (typeof smatchRegisterMember === 'function' && m.key && m.key.length > 1) {
+      smatchRegisterMember(m.key, m);
+    }
+    if (typeof SmatchMerge !== 'undefined') {
+      const sent = SmatchMerge.send({
+        key: m.key, name: m.name, sport: m.sport || '', icon: m.icon || (isEte?'🏄':'🏂'),
+        spot: m.city || localStorage.getItem('snm_lieu') || '', compat: m.compat || 85,
+      });
+      if (sent) {
+        sentCount++;
+        // Acceptation simulée échelonnée (pour ne pas tout accepter d'un coup)
+        const delay = 2500 + Math.random() * 4000;
+        setTimeout(() => {
+          const r = SmatchMerge.get(sent.id);
+          if (r && r.status === 'pending') {
+            SmatchMerge.update(sent.id, { status: 'accepted', time: 'À l\'instant' });
+            if (typeof navPushNotif === 'function') navPushNotif('merge', `${m.name} a accepté ta demande ⚡`, 'Discutez pour valider votre trip ensemble', 'demandes');
+            if (typeof navRender === 'function') navRender();
+          }
+        }, delay);
+      }
+    }
+  });
   document.getElementById('stat-sent').textContent = mergedSet.size;
   document.getElementById('btn-merge-all').innerHTML = '<i class="fa-solid fa-check"></i> Demandes envoyées ✓';
   document.getElementById('btn-merge-all').className = 'inline-flex items-center gap-3 font-bold px-8 py-3.5 rounded-xl transition-all btn-merge-sent';
   applyFilter(activeFilter); // re-render
-  showToast('🎉', `${unsent.length} demande${unsent.length>1?'s':''} de merge envoyée${unsent.length>1?'s':''} !`, isEte?'#fbbf24':'#22d3ee');
+  if (typeof navRender === 'function') navRender();
+  showToast('🎉', `${sentCount} demande${sentCount>1?'s':''} de merge envoyée${sentCount>1?'s':''} !`, isEte?'#fbbf24':'#22d3ee');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

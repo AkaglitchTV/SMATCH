@@ -22,6 +22,17 @@ function navSaveState() {
   localStorage.setItem('snm_status', NAV_STATE.status);
 }
 
+// Le dernier dashboard visité (snm_active_trip_id), sinon le 1er de la saison courante
+function _navLatestDashboard(actifs) {
+  if (!actifs || !actifs.length) return null;
+  const activeId = localStorage.getItem('snm_active_trip_id');
+  if (activeId) {
+    const found = actifs.find(d => d.id === activeId);
+    if (found) return found;
+  }
+  return actifs.find(d => d.mode === NAV_STATE.mode) || actifs[0];
+}
+
 function navIsSouvenir(d) {
   // Un crew issu d'un merge reste actif (sauf s'il a été explicitement archivé)
   if (d.fromMerge && !d.archived) return false;
@@ -481,7 +492,7 @@ function navOpenSheet(which) {
     const now = Date.now();
     const actifs = dbs.filter(d => !navIsSouvenir(d));
     const souvenirs = dbs.filter(d => navIsSouvenir(d));
-    const latest = actifs.find(d => d.mode === NAV_STATE.mode) || actifs[0];
+    const latest = _navLatestDashboard(actifs);
     const dRow = (d) => row(
       d.mode==='ete'?'fa-sun':'fa-snowflake',
       d.name,
@@ -490,7 +501,7 @@ function navOpenSheet(which) {
     );
     title = '👥 Mes Crews';
     let c = '';
-    if (latest) c += row('fa-bolt','Dashboard actif', isEte?'SunMatch — Été ☀️':'SnowMatch — Hiver ❄️', `navGoToDashboard('${latest.id}','${latest.mode}','${latest.url}')`);
+    if (latest) c += row('fa-bolt','Dashboard actif', `${latest.name} · ${latest.mode==='ete'?'Été ☀️':'Hiver ❄️'}`, `navGoToDashboard('${latest.id}','${latest.mode}','${latest.url}')`);
     if (actifs.length) c += `<div style="padding:.5rem 1.1rem .2rem;font-size:.6rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;">🟢 Actifs</div>` + actifs.map(dRow).join('');
     if (souvenirs.length) c += `<div style="padding:.5rem 1.1rem .2rem;font-size:.6rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;">📸 Souvenirs</div>` + souvenirs.map(dRow).join('');
     content = c || '<div style="padding:2rem;text-align:center;color:#334155;font-size:.85rem;">Aucun crew pour le moment</div>';
@@ -569,11 +580,11 @@ function navRender() {
   const now   = Date.now();
   const actifs    = dbs.filter(d => !navIsSouvenir(d));
   const souvenirs = dbs.filter(d => navIsSouvenir(d));
-  const latestActive = actifs.find(d => d.mode === m.mode) || actifs[0];
+  const latestActive = _navLatestDashboard(actifs);
   const activeDash = latestActive ? latestActive.url : (isEte ? 'dashboard_ete.html?trip=de1' : 'dashboard_hiver.html?trip=dh1');
   const activeId   = latestActive ? latestActive.id  : (isEte ? 'de1' : 'dh1');
   const activeMode = latestActive ? latestActive.mode : m.mode;
-  const activeModeLabel = activeMode === 'ete' ? 'SunMatch — Été ☀️' : 'SnowMatch — Hiver ❄️';
+  const activeModeLabel = latestActive ? `${latestActive.name} · ${activeMode === 'ete' ? 'Été ☀️' : 'Hiver ❄️'}` : (activeMode === 'ete' ? 'SunMatch — Été ☀️' : 'SnowMatch — Hiver ❄️');
 
   const dbBtn = (d, isSouvenir) => {
     const isAct = d.mode===m.mode && !navIsSouvenir(d);

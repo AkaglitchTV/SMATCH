@@ -602,7 +602,7 @@ function renderRoadmapEte() {
         </div>
         <p class="text-slate-400 text-xs leading-relaxed">${step.sub||''}</p>
         ${step.docs ? `<div class="mt-2 p-2.5 rounded-lg" style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);"><div class="flex items-center gap-1.5 mb-1"><i class="fa-solid fa-paperclip" style="color:#fbbf24;font-size:.65rem;"></i><span style="color:#fcd34d;font-weight:600;font-size:.65rem;">Documents & infos</span></div><div class="text-slate-300" style="font-size:.7rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${step.docs}</div></div>` : ''}
-        ${step.files && step.files.length ? `<div class="mt-2 flex flex-wrap gap-1.5">${step.files.map(f=>`<span style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.22);border-radius:8px;font-size:.65rem;color:#fcd34d;"><i class="fa-solid fa-paperclip" style="font-size:.6rem;"></i>${f.name}</span>`).join('')}</div>` : ''}
+        ${step.files && step.files.length ? `<div class="mt-2 flex flex-wrap gap-1.5">${step.files.map((f,fi)=>`<span style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.22);border-radius:8px;font-size:.65rem;color:#fcd34d;"><i class="fa-solid fa-paperclip" style="font-size:.6rem;"></i>${f.name}${canEdit?`<button onclick="dashDeleteStepFileEte(${i},${fi})" aria-label="Supprimer" style="background:none;border:none;color:#fcd34d;cursor:pointer;font-size:.6rem;margin-left:.1rem;opacity:.7;">✕</button>`:''}</span>`).join('')}</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -692,6 +692,16 @@ function saveRoadmapStepEte() {
   document.getElementById('add-step-modal').remove();
   renderRoadmapEte();
   showToast('✅ Étape ajoutée à la roadmap');
+}
+
+function dashDeleteStepFileEte(stepIdx, fileIdx) {
+  const step = TRIP.roadmap[stepIdx];
+  if (!step || !step.files) return;
+  const removed = step.files.splice(fileIdx, 1)[0];
+  _persistRoadmapEte();
+  if (typeof dashAddLog === 'function' && removed) dashAddLog('🗺️ Roadmap', 'Pièce jointe retirée : "' + removed.name + '"');
+  renderRoadmapEte();
+  showToast('Pièce jointe retirée');
 }
 
 function dashDeleteRoadmapStepEte(i) {
