@@ -349,10 +349,21 @@
       <div class="form-section">
         <span class="form-label">👥 Taille de crew idéale</span>
         <div class="flex gap-2 flex-wrap">
-          <button class="dispo-btn" data-g="1"  onclick="setGroupSize('1')">👤 Solo + 1</button>
           <button class="dispo-btn" data-g="2"  onclick="setGroupSize('2')">👥 Trio (3)</button>
           <button class="dispo-btn" data-g="4"  onclick="setGroupSize('4')">👨‍👩‍👧‍👦 Petit groupe (4-5)</button>
           <button class="dispo-btn" data-g="6"  onclick="setGroupSize('6')">🎉 Grande bande (6+)</button>
+        </div>
+      </div>
+
+      <!-- Tranche d'âge -->
+      <div class="form-section">
+        <span class="form-label">🎂 Tranche d'âge du crew</span>
+        <div class="flex gap-2 flex-wrap">
+          <button class="dispo-btn" data-age="all" onclick="setAgeRange('all')">🌍 Peu importe</button>
+          <button class="dispo-btn" data-age="18-25" onclick="setAgeRange('18-25')">18–25 ans</button>
+          <button class="dispo-btn" data-age="26-35" onclick="setAgeRange('26-35')">26–35 ans</button>
+          <button class="dispo-btn" data-age="36-45" onclick="setAgeRange('36-45')">36–45 ans</button>
+          <button class="dispo-btn" data-age="46+" onclick="setAgeRange('46+')">46 ans +</button>
         </div>
       </div>
 
@@ -762,6 +773,7 @@ let selectedAct = null;
 let dispoType = null;
 let intensityVal = null;
 let groupSize = null;
+let ageRange = 'all';
 
 // ════════════════════════════════════════════════════════════
 //  SEASON CALLBACK (depuis nav.js)
@@ -1011,6 +1023,14 @@ function setGroupSize(size) {
   });
 }
 
+function setAgeRange(range) {
+  ageRange = range;
+  const isEte = MODE === 'ete';
+  const cls = isEte ? 'active-ete' : 'active-hiver';
+  document.querySelectorAll('.dispo-btn[data-age]').forEach(b => {
+    b.classList.toggle(cls, b.dataset.age === range);
+  });
+}
 // ════════════════════════════════════════════════════════════
 //  SUBMIT
 // ════════════════════════════════════════════════════════════
@@ -1021,6 +1041,7 @@ function submitRecherche() {
   localStorage.setItem('snm_act_icon',   selectedAct.icon);
   localStorage.setItem('snm_dispo_type', dispoType || 'flexible');
   localStorage.setItem('snm_lieu',       document.getElementById('inp-lieu').value || '');
+  localStorage.setItem('snm_age_range',  ageRange || 'all');
   localStorage.setItem('snm_mode',       MODE);
 
   // Capture les dates de disponibilité selon le type choisi
@@ -1033,11 +1054,21 @@ function submitRecherche() {
   localStorage.setItem('snm_date_from', dateFrom || '');
   localStorage.setItem('snm_date_to',   dateTo || '');
 
+  // Garde-fou : dates passées ou incohérentes
+  if (dateFrom) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const df = new Date(dateFrom), dt = new Date(dateTo || dateFrom);
+    if (isNaN(df) || df.getFullYear() > today.getFullYear() + 2) { alert('⚠️ Date invalide'); return; }
+    if (df < today) { alert('⚠️ La date ne peut pas être dans le passé'); return; }
+    if (dt < df) { alert('⚠️ La date de fin est avant le début'); return; }
+  }
+
   // Sauvegarde la recherche PAR SAISON (pour que le switch hiver/été retrouve la bonne)
   const searchData = {
     activite: selectedAct.id, act_name: selectedAct.name, act_icon: selectedAct.icon,
     dispo_type: dispoType || 'flexible', lieu: document.getElementById('inp-lieu').value || '',
     date_from: dateFrom || '', date_to: dateTo || '',
+    age_range: ageRange || 'all', group_size: groupSize || '',
   };
   localStorage.setItem('snm_search_' + MODE, JSON.stringify(searchData));
 
@@ -1050,7 +1081,25 @@ function submitRecherche() {
 document.addEventListener('DOMContentLoaded', () => {
   onSeasonChange(MODE);
   _restorePreviousSearch();
+  _applyDateBounds();
 });
+
+// Empêche les dates passées ou absurdes (ex: année à 9 chiffres)
+function _applyDateBounds() {
+  const today = new Date().toISOString().slice(0,10);
+  const maxD = new Date(); maxD.setFullYear(maxD.getFullYear() + 2);
+  const max = maxD.toISOString().slice(0,10);
+  ['date-day','date-wkd-from','date-wkd-to','date-from','date-to','date-flex-from'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.min = today; el.max = max; }
+  });
+  // Quand on choisit une date de début, la date de fin ne peut pas être avant
+  const pairs = [['date-wkd-from','date-wkd-to'],['date-from','date-to']];
+  pairs.forEach(([from,to]) => {
+    const f = document.getElementById(from), t = document.getElementById(to);
+    if (f && t) f.addEventListener('change', () => { if (f.value) t.min = f.value; if (t.value && t.value < f.value) t.value = f.value; });
+  });
+}
 
 // ─── RESTORE PREVIOUS SEARCH ─────────────────────────────────
 function _restorePreviousSearch() {

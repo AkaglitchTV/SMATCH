@@ -222,6 +222,18 @@ function _smatchSeedCrewChat(trip) {
   }
   chat.push({ key: 'R', name: 'Toi', msg: isEte ? 'Carrément ! On planifie ça 🙌' : 'Hâte aussi ! On cale les détails 🔥', time: time(), me: true });
 
+  // Petit échange de logistique pour rendre le chat vivant dès le départ
+  if (keys.length) {
+    const m0 = dir[keys[0]];
+    if (m0) {
+      const followUps = isEte
+        ? [`On part de quelle ville ? Je peux prendre des gens en voiture 🚗`, `Faut qu'on réserve le logement vite, ça part vite à ${spot} !`, `Qui gère les réservations resto ? 🍽️`]
+        : [`On réserve les forfaits ensemble ? Ça revient moins cher 🎿`, `Faut penser au covoiturage, qui a une caisse ? 🚙`, `Je regarde les chalets dispo et je vous fais un récap 🏠`];
+      chat.push({ key: keys[0], name: m0.name, msg: followUps[Math.floor(Math.random()*followUps.length)], time: time(), me: false });
+      chat.push({ key: 'R', name: 'Toi', msg: isEte ? 'Top, je m\'occupe du planning et je partage 📋' : 'Nickel, je lance un doc partagé pour tout centraliser 📋', time: time(), me: true });
+    }
+  }
+
   for (let i = 1; i < keys.length; i++) {
     const m = dir[keys[i]];
     if (!m) continue;
