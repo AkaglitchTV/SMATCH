@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SnowMatch — Dashboard Crew ❄️</title>
+<meta name="description" content="Organise ton trip de groupe : roadmap, budget partagé, courses, météo et chat de crew. SnowMatch, le dashboard des aventures d'hiver.">
+<meta name="theme-color" content="#020617">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smatch">
+<meta property="og:title" content="Dashboard de crew — SnowMatch ❄️">
+<meta property="og:description" content="Organise ton trip de groupe : roadmap, budget partagé, courses, météo et chat de crew. SnowMatch, le dashboard des aventures d'hiver.">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Dashboard de crew — SnowMatch ❄️">
+<meta name="twitter:description" content="Organise ton trip de groupe : roadmap, budget partagé, courses, météo et chat de crew. SnowMatch, le dashboard des aventures d'hiver.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏔️</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="trip_data.js"></script>
+<script src="store.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* ── BASE ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+body { background:#020617; color:#f1f5f9; font-family:ui-sans-serif,system-ui,sans-serif; min-height:100vh; display:flex; flex-direction:column; overflow-x:hidden; }
+#bg-layer { position:fixed; inset:0; z-index:0; background:linear-gradient(160deg,#0f1f3d 0%,#0c2340 25%,#1a3a5c 45%,#2d5a7a 60%,#1e3a52 75%,#0a1628 100%); }
+
+/* ── ANIMATIONS ──────────────────────────────── */
+@keyframes merge-flash { 0%{opacity:0;transform:scale(.92)} 60%{opacity:1;transform:scale(1.01)} 100%{opacity:1;transform:scale(1)} }
+@keyframes dot-pulse   { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes slide-up    { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes comment-pop { from{opacity:0;transform:translateY(8px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes modal-appear { from{opacity:0;transform:scale(.93) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+.merge-appear { animation:merge-flash .6s ease both; }
+.merge-appear:nth-child(1){animation-delay:.05s}.merge-appear:nth-child(2){animation-delay:.12s}.merge-appear:nth-child(3){animation-delay:.19s}
+.live-dot  { animation:dot-pulse 1.5s ease-in-out infinite; }
+.slide-up  { animation:slide-up .3s ease both; }
+.cmt-pop   { animation:comment-pop .3s ease both; }
+
+/* ── CARD & GLASS ───────────────────────────── */
+.card  { background:rgba(15,23,42,.75); border:1px solid rgba(30,41,59,.7); border-radius:20px; backdrop-filter:blur(16px); }
+.card2 { background:rgba(5,8,20,.65);   border:1px solid rgba(30,41,59,.6); border-radius:14px; }
+
+/* ── TABS ────────────────────────────────────── */
+.tab-on  { background:rgba(34,211,238,.15); border-color:rgba(34,211,238,.5); color:#22d3ee; }
+.tab-off { background:rgba(5,8,20,.5);      border-color:rgba(30,41,59,.5);   color:#64748b; }
+
+/* ── ROADMAP ────────────────────────────────── */
+.roadmap-step::before { content:''; position:absolute; left:20px; top:44px; bottom:-16px; width:2px; background:linear-gradient(to bottom,rgba(34,211,238,.4),rgba(34,211,238,0)); }
+.roadmap-step:last-child::before { display:none; }
+
+/* ── CHAT ────────────────────────────────────── */
+.bubble-me   { background:linear-gradient(135deg,#0891b2,#1d4ed8); border-radius:18px 18px 4px 18px; }
+.bubble-them { background:rgba(15,23,42,.95); border:1px solid rgba(30,41,59,.6); border-radius:18px 18px 18px 4px; }
+.bubble-me, .bubble-them { word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.4; }
+.chat-scroll { scrollbar-width:thin; scrollbar-color:rgba(30,41,59,.6) transparent; }
+
+/* ── STARS ───────────────────────────────────── */
+.star-btn { font-size:1.35rem; cursor:pointer; color:#1e293b; transition:transform .15s,filter .15s; }
+.star-btn.lit { color:#22d3ee; filter:drop-shadow(0 0 4px rgba(34,211,238,.7)); }
+.star-btn:hover { transform:scale(1.25); }
+
+/* ── BUDGET / COURSES ───────────────────────── */
+.expense-row { animation:merge-flash .3s ease both; }
+.mini-avatar { width:26px; height:26px; border-radius:50%; font-size:.65rem; font-weight:900; border:2px solid rgba(5,8,20,.9); cursor:pointer; transition:opacity .2s,border-color .2s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.mini-avatar.inactive { opacity:.28; }
+.mini-avatar.active   { opacity:1; border-color:rgba(34,211,238,.55); }
+
+/* ── MODAL ───────────────────────────────────── */
+.modal-overlay { display:none; position:fixed; inset:0; z-index:9000; background:rgba(2,6,23,.82); backdrop-filter:blur(7px); align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:rgba(10,15,30,.97); border:1px solid rgba(34,211,238,.22); border-radius:24px; width:94%; max-width:460px; max-height:90vh; overflow-y:auto; box-shadow:0 40px 80px rgba(0,0,0,.7); animation:modal-appear .28s ease both; scrollbar-width:thin; }
+
+/* ── MEMBER TOOLTIP ─────────────────────────── */
+.member-wrap { position:relative; display:inline-flex; cursor:pointer; }
+.member-tooltip { position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%) scale(.85); background:rgba(5,8,20,.96); border:1px solid rgba(34,211,238,.3); color:#22d3ee; font-size:.62rem; font-weight:700; white-space:nowrap; padding:4px 10px; border-radius:8px; pointer-events:none; opacity:0; transition:opacity .2s,transform .2s; z-index:50; }
+.member-wrap:hover .member-tooltip { opacity:1; transform:translateX(-50%) scale(1); }
+
+/* ── EDIT FIELD ─────────────────────────────── */
+.edit-field { background:rgba(34,211,238,.05); border:1px solid rgba(34,211,238,.3); border-radius:8px; padding:5px 10px; color:#fff; width:100%; font-size:.8rem; outline:none; transition:border-color .2s; font-family:inherit; }
+.edit-field:focus { border-color:#22d3ee; }
+
+/* ── COMMENT TEXTAREA ────────────────────────── */
+.cmt-ta { width:100%; background:rgba(5,8,20,.65); border:1px solid rgba(30,41,59,.6); border-radius:12px; padding:10px 14px; color:#e2e8f0; font-size:.78rem; resize:none; outline:none; transition:border-color .2s; font-family:inherit; }
+.cmt-ta:focus { border-color:rgba(34,211,238,.5); }
+.cmt-ta::placeholder { color:#334155; }
+
+/* ── TOAST ───────────────────────────────────── */
+#toast { position:fixed; bottom:22px; right:22px; z-index:9999; background:rgba(10,15,30,.97); border:1px solid rgba(34,211,238,.4); color:#22d3ee; font-size:.8rem; font-weight:700; padding:10px 18px; border-radius:14px; pointer-events:none; opacity:0; transform:translateY(10px); transition:all .28s ease; backdrop-filter:blur(12px); }
+#toast.show { opacity:1; transform:translateY(0); }
+
+/* ── MICRO-INTERACTIONS ──────────────────────── */
+a, button { transition:filter .17s ease, transform .17s ease; }
+button:hover:not(:disabled) { filter:brightness(1.12); }
+button:active:not(:disabled), a:active { transform:scale(.97)!important; filter:brightness(.92)!important; }
+button:disabled { opacity:.4; cursor:not-allowed; }
+</style>
+<link rel="stylesheet" href="mobile.css">
+</head>
+<body data-page="dashboard">
+
+<div id="toast"></div>
+<div id="bg-layer">
+  <svg id="svg-hiver" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:0;left:0;width:100%;height:70%;">
+    <path d="M0,320 L0,220 L120,140 L200,180 L320,80 L420,130 L520,40 L620,100 L720,20 L820,90 L920,50 L1020,120 L1120,60 L1220,110 L1320,70 L1440,130 L1440,320 Z" fill="rgba(10,20,40,.7)"/>
+    <path d="M0,320 L0,260 L100,200 L200,230 L340,160 L440,200 L560,130 L660,170 L760,110 L860,150 L960,120 L1060,160 L1160,130 L1280,170 L1380,140 L1440,170 L1440,320 Z" fill="rgba(8,16,32,.87)"/>
+    <path d="M520,40 L480,80 L560,80 Z" fill="rgba(220,240,255,.18)"/>
+    <path d="M720,20 L680,65 L760,65 Z" fill="rgba(220,240,255,.18)"/>
+    <path d="M1120,60 L1088,95 L1152,95 Z" fill="rgba(220,240,255,.14)"/>
+  </svg>
+</div>
+
+<div id="nav-mount"></div>
+
+<main class="relative z-10 flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+  <!-- CREW HEADER — injecté dynamiquement -->
+  <div class="card merge-appear p-5 mb-5" id="crew-header"></div>
+
+  <!-- LAYOUT 3 COLS -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    <!-- LEFT (2/3) -->
+    <div class="lg:col-span-2 space-y-4">
+
+      <!-- TABS -->
+      <div class="flex gap-2 flex-wrap" id="tab-bar">
+        <button class="tab-on  text-xs font-bold px-4 py-2 rounded-full border transition-all" onclick="showTab('roadmap')"><i class="fa-solid fa-map mr-1.5"></i>Roadmap</button>
+        <button class="tab-off text-xs font-bold px-4 py-2 rounded-full border transition-all" onclick="showTab('station')"><i class="fa-solid fa-mountain mr-1.5" id="station-icon"></i><span id="station-tab-label">Infos Station</span></button>
+        <button class="tab-off text-xs font-bold px-4 py-2 rounded-full border transition-all" onclick="showTab('budget')"><i class="fa-solid fa-wallet mr-1.5"></i>Budget</button>
+        <button class="tab-off text-xs font-bold px-4 py-2 rounded-full border transition-all" onclick="showTab('courses')"><i class="fa-solid fa-basket-shopping mr-1.5"></i>Courses</button>
+        <button class="tab-off text-xs font-bold px-4 py-2 rounded-full border transition-all" onclick="showTab('archives')"><i class="fa-solid fa-box-archive mr-1.5"></i>Souvenirs</button>
+        <button class="tab-off text-xs font-bold px-4 py-2 rounded-full border transition-all" onclick="showTab('log')"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Journal</button>
+      </div>
+
+      <!-- PANELS -->
+      <div id="panel-roadmap"  class="card p-5"></div>
+      <div id="panel-station"  class="card p-5" style="display:none;"></div>
+      <div id="panel-budget"   class="card p-5" style="display:none;"></div>
+      <div id="panel-courses"  class="card p-5" style="display:none;"></div>
+      <div id="panel-archives" class="card p-5" style="display:none;"></div>
+      <div id="panel-log" class="card p-5" style="display:none;"></div>
+    </div>
+
+    <!-- RIGHT (1/3) -->
+    <div class="space-y-4">
+      <div class="card merge-appear p-5" id="panel-members"></div>
+      <div class="card merge-appear flex flex-col p-5" style="height:360px;" id="panel-chat"></div>
+    </div>
+  </div>
+
+  <!-- FOOTER ACTIONS -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+    <button onclick="dashShareCrew()"    class="card p-4 text-center hover:border-slate-600 transition-all group"><i class="fa-solid fa-share-nodes text-cyan-400 text-lg mb-2 group-hover:scale-110 transition-transform block"></i><div class="text-sm font-semibold text-white">Partager le crew</div><div class="text-xs text-slate-500">Copier le lien d'invitation</div></button>
+    <button onclick="dashExportRoadmap()" class="card p-4 text-center hover:border-slate-600 transition-all group"><i class="fa-solid fa-file-export text-violet-400 text-lg mb-2 group-hover:scale-110 transition-transform block"></i><div class="text-sm font-semibold text-white">Exporter la Roadmap</div><div class="text-xs text-slate-500">Fichier .ics Google Calendar</div></button>
+    <button onclick="dashPayGroup()"     class="card p-4 text-center hover:border-slate-600 transition-all group"><i class="fa-solid fa-credit-card text-emerald-400 text-lg mb-2 group-hover:scale-110 transition-transform block"></i><div class="text-sm font-semibold text-white">Payer en groupe</div><div class="text-xs text-slate-500">Hébergement + forfaits</div></button>
+  </div>
+
+  <!-- ZONE DANGER -->
+  <div class="mt-4 flex justify-center">
+    <button onclick="dashLeaveCrew()" class="flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all" style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.22);color:#f87171;" onmouseenter="this.style.background='rgba(239,68,68,.15)'" onmouseleave="this.style.background='rgba(239,68,68,.07)'">
+      <i class="fa-solid fa-right-from-bracket"></i> Quitter ce crew
+    </button>
+  </div>
+</main>
+
+<footer class="relative z-10 text-center py-5 text-xs text-slate-600 border-t border-slate-900 bg-slate-950/80">
+  &copy; 2026 <span id="footer-brand">SnowMatch</span> — Smatch Inc.
+</footer>
+
+<!-- MODAL PROFIL -->
+<div class="modal-overlay" id="profile-modal" onclick="if(event.target===this)closeProfile()">
+<div class="modal-box" id="profile-modal-inner">
+  <div class="p-5 pb-4 border-b border-slate-800 flex items-start gap-4">
+    <div id="modal-avatar" class="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl flex-shrink-0 relative"></div>
+    <div class="flex-grow">
+      <div id="modal-name" class="text-xl font-extrabold text-white mb-0.5"></div>
+      <div id="modal-sub"  class="text-xs text-slate-400"></div>
+      <div id="modal-tags" class="flex gap-1.5 flex-wrap mt-2"></div>
+    </div>
+    <button onclick="closeProfile()" class="text-slate-500 hover:text-white text-lg flex-shrink-0" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="p-5 space-y-4">
+    <div class="grid grid-cols-2 gap-3" id="modal-stats"></div>
+    <div id="modal-bio" class="text-slate-300 text-sm leading-relaxed p-4 rounded-xl border border-slate-800 bg-slate-950/40"></div>
+    <div id="modal-adventurer"></div>
+    <div id="modal-info-view">
+      <button id="btn-edit-profile" style="display:none" onclick="enterEditMode()" class="mt-3 w-full text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 py-2 rounded-xl transition-all flex items-center justify-center gap-2"><i class="fa-solid fa-pen-to-square"></i> Modifier mon profil</button>
+    </div>
+    <div id="modal-edit-mode" class="hidden space-y-3">
+      <div class="text-xs text-cyan-400 font-bold uppercase tracking-wider">✏️ Mode Édition</div>
+      <div><label class="text-xs text-slate-400 mb-1 block">Pseudo</label><input id="edit-pseudo" class="edit-field" type="text"></div>
+      <div><label class="text-xs text-slate-400 mb-1 block">Bio</label><textarea id="edit-bio" class="edit-field" rows="3" style="resize:none;"></textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-400 mb-1 block">Ville</label><input id="edit-ville" class="edit-field"></div>
+        <div><label class="text-xs text-slate-400 mb-1 block">Âge</label><input id="edit-age" class="edit-field" type="number"></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="saveEdit()" class="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold py-2.5 rounded-xl text-sm">✓ Sauvegarder</button>
+        <button onclick="cancelEdit()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-sm transition-all">Annuler</button>
+      </div>
+    </div>
+    <div class="flex gap-3" id="modal-contacts"></div>
+    <!-- AVIS -->
+    <div class="border-t border-slate-800 pt-4">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-semibold text-white">Avis de la communauté</span>
+        <span id="modal-score" class="text-sm font-black text-cyan-400"></span>
+      </div>
+      <div class="flex items-center gap-1 mb-1"><div id="modal-stars" class="flex gap-0.5"></div><span id="star-lbl" class="text-xs text-slate-500 ml-2"></span></div>
+      <textarea id="cmt-input" class="cmt-ta mt-3" rows="2" placeholder="Partage ton expérience avec ce rider…"></textarea>
+      <button onclick="publishComment()" class="mt-2 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-600 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition-all"><i class="fa-solid fa-paper-plane text-xs"></i> Publier</button>
+      <div id="modal-comments" class="space-y-3 mt-3"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL PAIEMENT -->
+<div class="modal-overlay" id="pay-modal" onclick="if(event.target===this)closePayModal()">
+<div class="modal-box" id="pay-modal-inner"></div>
+</div>
+
+<!-- MODAL PHOTOS -->
+<div class="modal-overlay" id="photos-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-box" id="photos-modal-inner"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  LOAD ACTIVE TRIP — URL param wins, written to localStorage BEFORE TRIP assigned
+// ═══════════════════════════════════════════════════════════════════════════
+(function() {
+  const urlParam = new URLSearchParams(window.location.search).get('trip');
+  if (urlParam && window.SMATCH_TRIPS && window.SMATCH_TRIPS[urlParam]) {
+    localStorage.setItem('snm_active_trip_id', urlParam);
+  }
+})();
+const TRIP = smatchGetActiveTrip();
+const isEte = TRIP.mode === 'ete';
+const AC  = TRIP.accentColor;
+const ACS = `rgba(34,211,238,`; // used inline
+
+// ── Member data (combined hiver+ete pool) ──────────────────────────────
+// ── Annuaire centralisé (depuis trip_data.js) ──────────────────────────
+// Clone profond pour permettre l'override du pseudo de self sans toucher la source
+const ALL_MEMBERS = JSON.parse(JSON.stringify(typeof window.smatchAllMembers === 'function' ? window.smatchAllMembers() : window.SMATCH_MEMBERS));
+ALL_MEMBERS.R.name = localStorage.getItem('snm_pseudo') || ALL_MEMBERS.R.name;
+// MEMBER_NAMES = noms de tous les membres connus (base + fusionnés)
+const MEMBER_NAMES = {};
+Object.keys(ALL_MEMBERS).forEach(k => { MEMBER_NAMES[k] = ALL_MEMBERS[k].name; });
+MEMBER_NAMES.R = 'RiderDu74';
+const STAR_LBLS = ['','Bof 😐','Passable 🤏','Bien 👍','Super ! 🔥','Légendaire ! 🤩'];
+const MEMBERS_SHOP = TRIP.memberKeys.map(k => ({
+  key:k, label:(ALL_MEMBERS[k]?.name?.[0]) || (k.length===1?k:'?'),
+  color: ALL_MEMBERS[k]?.color || 'from-slate-600 to-slate-800',
+  text:  ALL_MEMBERS[k]?.tc    || 'text-white',
+}));
+
+// ── Runtime state ──────────────────────────────────────────────────────
+let currentMember = null, userRating = 0, editMode = false;
+let expenses = [];
+let shopItems = TRIP.shopItems.map(i => ({...i}));
+let shopIdCounter = shopItems.length + 1;
+let activeTab = 'roadmap';
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INIT PAGE
+// ═══════════════════════════════════════════════════════════════════════════
+function initPage() {
+  // Apply member name from localStorage (updated by navProfilSave)
+  ALL_MEMBERS.R.name = localStorage.getItem('snm_pseudo') || 'RiderDu74';
+  MEMBER_NAMES.R = ALL_MEMBERS.R.name;
+
+  document.title = `SnowMatch — ${TRIP.name} ❄️`;
+  document.getElementById('footer-brand').textContent = TRIP.mode === 'ete' ? 'SunMatch' : 'SnowMatch';
+
+  renderHeader();
+  renderRoadmap();
+  renderStation();
+  renderBudget();
+  renderCourses();
+  renderArchives();
+  renderMembers();
+  renderChat();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CREW HEADER
+// ═══════════════════════════════════════════════════════════════════════════
+function renderHeader() {
+  const memberKeys = TRIP.memberKeys;
+  const colors = ['from-cyan-400 to-blue-600','from-violet-500 to-purple-700','from-orange-400 to-red-600','from-emerald-400 to-teal-600','from-rose-400 to-pink-600'];
+  const avatars = memberKeys.map((k,i) => `<div class="w-11 h-11 rounded-full bg-gradient-to-br ${colors[i]||colors[0]} flex items-center justify-center text-slate-950 font-black border-2 border-slate-900 text-sm" style="z-index:${40-i*10};">${avatarLetter(k, ALL_MEMBERS[k])}</div>`).join('');
+  const isPast = new Date(TRIP.dateEnd) < new Date();
+  document.getElementById('crew-header').innerHTML = `
+    <div class="flex flex-col md:flex-row items-center gap-5">
+      <div class="flex -space-x-3 flex-shrink-0">${avatars}</div>
+      <div class="flex-grow text-center md:text-left">
+        <div class="flex items-center justify-center md:justify-start gap-2 mb-1">
+          <i class="fa-solid ${isPast ? 'fa-box-archive text-violet-400' : 'fa-bolt text-cyan-400'} text-xs"></i>
+          <span class="text-xs font-bold uppercase tracking-wider" style="color:${AC};">${isPast ? '📸 Souvenir archivé' : 'Crew actif ✓'}</span>
+        </div>
+        <h2 class="text-2xl font-extrabold text-white">${TRIP.name} ${TRIP.emoji}</h2>
+        <p class="text-slate-400 text-sm mt-0.5">${TRIP.members} membres · ${TRIP.spot} · ${formatDateRange(TRIP.dateStart, TRIP.dateEnd)}</p>
+        ${!isPast ? `<button onclick="openEditCrew()" class="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all" style="background:${AC}14;border:1px solid ${AC}33;color:${AC};" onmouseenter="this.style.background='${AC}22'" onmouseleave="this.style.background='${AC}14'"><i class="fa-solid fa-pen"></i> Modifier le crew</button>` : ''}
+      </div>
+      <div class="flex gap-4 flex-shrink-0 text-center">
+        <div><div class="text-xl font-black" style="color:${AC};">${TRIP.members}</div><div class="text-xs text-slate-500">Membres</div></div>
+        <div class="w-px bg-slate-800"></div>
+        <div><div class="text-xl font-black text-emerald-400">${daysBetween(TRIP.dateStart,TRIP.dateEnd)}j</div><div class="text-xs text-slate-500">Séjour</div></div>
+        <div class="w-px bg-slate-800"></div>
+        <div><div class="text-xl font-black text-violet-400">87%</div><div class="text-xs text-slate-500">Compat.</div></div>
+      </div>
+    </div>`;
+}
+
+function formatDateRange(s,e) {
+  const opts = {day:'numeric',month:'short',year:'numeric'};
+  return new Date(s).toLocaleDateString('fr-FR',opts) + ' – ' + new Date(e).toLocaleDateString('fr-FR',opts);
+}
+function daysBetween(s,e) { return Math.round((new Date(e)-new Date(s))/(1000*60*60*24)); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════════════════════════
+function showTab(tab) {
+  activeTab = tab;
+  const tabs = ['roadmap','station','budget','courses','archives','log'];
+  tabs.forEach(t => {
+    const p = document.getElementById('panel-'+t);
+    if (p) p.style.display = (t === tab) ? '' : 'none';
+  });
+  // Update tab buttons
+  const btns = document.getElementById('tab-bar').querySelectorAll('button');
+  btns.forEach((b,i) => {
+    b.className = (tabs[i]===tab ? 'tab-on' : 'tab-off') + ' text-xs font-bold px-4 py-2 rounded-full border transition-all';
+  });
+  if (tab==='courses') renderCourses();
+  if (tab==='archives') renderArchives();
+  if (tab==='log') renderLog();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ROADMAP
+// ═══════════════════════════════════════════════════════════════════════════
+function renderRoadmap() {
+  const canEdit = new Date(TRIP.dateEnd) >= new Date(); // crew actif = éditable
+  const steps = TRIP.roadmap.map((step, i) => {
+    const isLast = i === TRIP.roadmap.length - 1;
+    const participate = step.participate ? `
+      <div class="mt-2">
+        <button onclick="dashToggleParticipe(this,'${step.title}')" data-participating="false"
+          class="text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1 rounded-full transition-all">
+          Je participe <span class="text-slate-500">(${step.participants})</span>
+        </button>
+      </div>` : '';
+    const extraHtml = step.extra ? `<div class="mt-1.5 flex items-center gap-2"><span class="text-xs font-semibold text-emerald-400">${step.extra}</span></div>` : '';
+    const delBtn = canEdit ? `<button onclick="dashDeleteRoadmapStep(${i})" aria-label="Supprimer" class="text-xs flex-shrink-0 px-2 py-0.5 rounded-full transition-all" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#f87171;">✕</button>` : '';
+    return `<div class="roadmap-step relative flex gap-4 ${isLast?'':'pb-4'}">
+      <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);">
+        <i class="fa-solid ${step.icon||'fa-flag'} text-sm" style="color:#22d3ee;"></i>
+      </div>
+      <div class="flex-grow pt-1 min-w-0">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <span class="font-semibold text-white text-sm">${new Date(step.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'})} — ${step.title}</span>
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);color:#22d3ee;">${step.badge||'Étape'}</span>
+            ${delBtn}
+          </div>
+        </div>
+        <p class="text-slate-400 text-xs leading-relaxed">${step.sub||''}</p>
+        ${step.docs ? `<div class="mt-2 p-2.5 rounded-lg" style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.15);"><div class="flex items-center gap-1.5 mb-1"><i class="fa-solid fa-paperclip text-cyan-400" style="font-size:.65rem;"></i><span class="text-cyan-300 font-semibold" style="font-size:.65rem;">Documents & infos</span></div><div class="text-slate-300" style="font-size:.7rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${step.docs}</div></div>` : ''}
+        ${step.files && step.files.length ? `<div class="mt-2 flex flex-wrap gap-1.5">${step.files.map(f=>`<span style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.22);border-radius:8px;font-size:.65rem;color:#67e8f9;"><i class="fa-solid fa-paperclip" style="font-size:.6rem;"></i>${f.name}</span>`).join('')}</div>` : ''}
+        ${extraHtml}${participate}
+      </div>
+    </div>`;
+  }).join('');
+  const addBtn = canEdit ? `<button onclick="openAddRoadmapStep()" class="mt-4 w-full flex items-center justify-center gap-2 text-xs font-semibold py-2.5 rounded-xl transition-all" style="background:rgba(34,211,238,.1);border:1px dashed rgba(34,211,238,.35);color:#22d3ee;"><i class="fa-solid fa-plus"></i> Ajouter une étape</button>` : '';
+  document.getElementById('panel-roadmap').innerHTML = `
+    <h3 class="font-bold text-white mb-5 flex items-center gap-2"><i class="fa-solid fa-route text-cyan-400"></i>${TRIP.name} — Roadmap du séjour</h3>
+    ${TRIP.roadmap.length ? `<div class="space-y-4">${steps}</div>` : `<div class="text-center py-10 px-4"><div class="text-4xl mb-3">🗺️</div><p class="text-white font-semibold text-sm mb-1">Votre roadmap est vierge</p><p class="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">Ce crew vient d'être formé ! Planifiez vos étapes ensemble : trajet, arrivée, sessions… Tout commence ici.</p></div>`}
+    ${addBtn}`;
+}
+
+function _roadmapIconChoices() {
+  const icons = ['fa-flag','fa-car','fa-train','fa-plane','fa-house','fa-bed','fa-utensils','fa-mountain','fa-person-skiing','fa-champagne-glasses','fa-fire','fa-camera','fa-music','fa-trophy'];
+  return icons.map((ic,i) => `<button type="button" onclick="_selectStepIcon('${ic}',this)" data-icon="${ic}" class="step-icon-choice" style="width:38px;height:38px;border-radius:10px;background:${i===0?AC+'22':'rgba(5,8,20,.7)'};border:1px solid ${i===0?AC:'rgba(71,85,105,.4)'};color:${i===0?AC:'#94a3b8'};cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fa-solid ${ic}"></i></button>`).join('');
+}
+let _selectedStepIcon = 'fa-flag';
+let _stepFiles = [];
+function _onStepFiles(input) {
+  const list = document.getElementById('step-files-list');
+  for (const f of input.files) {
+    if (_stepFiles.some(x => x.name === f.name)) continue;
+    _stepFiles.push({ name: f.name, size: f.size });
+  }
+  _renderStepFiles();
+}
+function _renderStepFiles() {
+  const list = document.getElementById('step-files-list');
+  if (!list) return;
+  const icon = (n) => { const e=(n.split('.').pop()||'').toLowerCase(); if(['pdf'].includes(e))return'fa-file-pdf'; if(['jpg','jpeg','png','gif','webp'].includes(e))return'fa-file-image'; if(['doc','docx'].includes(e))return'fa-file-word'; if(['xls','xlsx','csv'].includes(e))return'fa-file-excel'; return'fa-file'; };
+  const fmt = (b) => b > 1048576 ? (b/1048576).toFixed(1)+' Mo' : Math.max(1,Math.round(b/1024))+' Ko';
+  list.innerHTML = _stepFiles.map((f,i) => `<div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.18);border-radius:10px;"><i class="fa-solid ${icon(f.name)}" style="color:#22d3ee;font-size:.8rem;"></i><span style="flex-grow:1;font-size:.7rem;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span><span style="font-size:.6rem;color:#64748b;flex-shrink:0;">${fmt(f.size)}</span><button type="button" onclick="_removeStepFile(${i})" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:.7rem;" aria-label="Retirer">✕</button></div>`).join('');
+}
+function _removeStepFile(i) { _stepFiles.splice(i,1); _renderStepFiles(); }
+function _selectStepIcon(ic, btn) {
+  _selectedStepIcon = ic;
+  document.querySelectorAll('.step-icon-choice').forEach(b => {
+    const on = b.dataset.icon === ic;
+    b.style.background = on ? AC+'22' : 'rgba(5,8,20,.7)';
+    b.style.borderColor = on ? AC : 'rgba(71,85,105,.4)';
+    b.style.color = on ? AC : '#94a3b8';
+  });
+}
+
+function openAddRoadmapStep() {
+  _selectedStepIcon = 'fa-flag';
+  _stepFiles = [];
+  const ex = document.getElementById('add-step-modal'); if (ex) ex.remove();
+  const modal = document.createElement('div');
+  modal.id = 'add-step-modal'; modal.className = 'snm-modal-overlay';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(2,6,23,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;';
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  const defaultDate = TRIP.dateStart || new Date().toISOString().slice(0,10);
+  modal.innerHTML = `
+    <div style="background:rgba(10,15,30,.98);border:1px solid ${AC}33;border-radius:22px;width:100%;max-width:400px;box-shadow:0 40px 80px rgba(0,0,0,.7);overflow:hidden;">
+      <div style="padding:1.2rem 1.3rem;border-bottom:1px solid rgba(30,41,59,.7);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:1rem;font-weight:800;color:#fff;">➕ Nouvelle étape</div>
+        <button onclick="document.getElementById('add-step-modal').remove()" aria-label="Fermer" style="color:#475569;background:none;border:none;cursor:pointer;font-size:1.1rem;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="padding:1.3rem;display:flex;flex-direction:column;gap:.9rem;max-height:65vh;overflow-y:auto;">
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📅 Date</label>
+          <input id="step-date" type="date" value="${defaultDate}" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.55rem .7rem;color:#e2e8f0;font-size:.8rem;outline:none;"></div>
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">🎨 Icône de l'étape</label>
+          <div id="step-icon-picker" style="display:flex;flex-wrap:wrap;gap:.4rem;">${_roadmapIconChoices()}</div></div>
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">🏷️ Titre</label>
+          <input id="step-title" type="text" placeholder="Ex : Arrivée au chalet" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.85rem;outline:none;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'"></div>
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📝 Description</label>
+          <input id="step-sub" type="text" placeholder="Ex : Check-in 16h, install + apéro" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.85rem;outline:none;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'"></div>
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📎 Documents & infos pratiques</label>
+          <textarea id="step-docs" rows="3" placeholder="Ajoute tes plans, billets de train, réservations, liens utiles…&#10;Ex : Billet TGV 8h12 Lyon→Chambéry · Résa chalet n°4821 · Lien Google Maps du RDV" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.8rem;outline:none;resize:vertical;line-height:1.4;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'"></textarea></div>
+        <div><label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">🗂️ Pièces jointes</label>
+          <input type="file" id="step-files" multiple onchange="_onStepFiles(this)" style="display:none;">
+          <button type="button" onclick="document.getElementById('step-files').click()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.65rem;background:rgba(5,8,20,.7);border:1px dashed rgba(71,85,105,.5);border-radius:12px;color:#94a3b8;font-size:.78rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-cloud-arrow-up"></i> Joindre des fichiers (PDF, billets, photos…)</button>
+          <div id="step-files-list" style="margin-top:.5rem;display:flex;flex-direction:column;gap:.3rem;"></div></div>
+      </div>
+      <div style="padding:0 1.3rem 1.3rem;display:flex;gap:.7rem;">
+        <button onclick="document.getElementById('add-step-modal').remove()" style="flex:1;background:rgba(30,41,59,.65);border:1px solid rgba(71,85,105,.4);color:#94a3b8;font-weight:700;font-size:.82rem;padding:.7rem;border-radius:12px;cursor:pointer;">Annuler</button>
+        <button onclick="saveRoadmapStep()" style="flex:1.5;background:linear-gradient(135deg,${AC},${AC}cc);color:#020617;font-weight:800;font-size:.82rem;padding:.7rem;border-radius:12px;border:none;cursor:pointer;"><i class="fa-solid fa-check"></i> Ajouter</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => { const i = document.getElementById('step-title'); if (i) i.focus(); }, 50);
+}
+
+function saveRoadmapStep() {
+  const date = document.getElementById('step-date').value;
+  const title = document.getElementById('step-title').value.trim();
+  const sub = document.getElementById('step-sub').value.trim();
+  const docs = document.getElementById('step-docs').value.trim();
+  if (!title) { document.getElementById('step-title').style.borderColor = '#ef4444'; return; }
+  TRIP.roadmap.push({ date: date || TRIP.dateStart, title, sub, docs, files: _stepFiles.slice(), badge: 'Étape', icon: _selectedStepIcon || 'fa-flag' });
+  TRIP.roadmap.sort((a,b) => new Date(a.date) - new Date(b.date));
+  _persistRoadmap();
+  if (typeof dashAddLog === 'function') dashAddLog('🗺️ Roadmap', 'Étape ajoutée : "' + title + '"');
+  document.getElementById('add-step-modal').remove();
+  renderRoadmap();
+  if (typeof showToast === 'function') showToast('✅ Étape ajoutée à la roadmap');
+}
+
+function dashDeleteRoadmapStep(i) {
+  const step = TRIP.roadmap[i];
+  if (!step) return;
+  TRIP.roadmap.splice(i, 1);
+  _persistRoadmap();
+  if (typeof dashAddLog === 'function') dashAddLog('🗺️ Roadmap', 'Étape retirée : "' + step.title + '"');
+  renderRoadmap();
+  if (typeof showToast === 'function') showToast('Étape retirée');
+}
+
+function _persistRoadmap() {
+  try {
+    const fresh = JSON.parse(localStorage.getItem('snm_fresh_trips') || '{}');
+    if (fresh[TRIP.id]) { fresh[TRIP.id].roadmap = TRIP.roadmap; localStorage.setItem('snm_fresh_trips', JSON.stringify(fresh)); }
+    else {
+      const ov = JSON.parse(localStorage.getItem('snm_trip_overrides') || '{}');
+      ov[TRIP.id] = ov[TRIP.id] || {};
+      ov[TRIP.id].roadmap = TRIP.roadmap;
+      localStorage.setItem('snm_trip_overrides', JSON.stringify(ov));
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATION / CONDITIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function renderStation() {
+  const st = TRIP.station;
+  const isSurf = st.isSurf;
+  const cells = isSurf ? [
+    {icon:'fa-water',color:'amber',val:st.snow,label:'Hauteur vagues'},
+    {icon:'fa-wind',color:'blue',val:st.lifts,label:'Vent offshore'},
+    {icon:'fa-thermometer-half',color:'amber',val:st.temp,label:'Temp. eau'},
+    {icon:'fa-sun',color:'yellow',val:st.meteo,label:'Temp. air'},
+    {icon:'fa-star',color:'amber',val:st.pistes,label:'Score conditions'},
+    {icon:'fa-surfing',color:'amber',val:st.forfait,label:'Location planche'},
+  ] : [
+    {icon:'fa-thermometer-half',color:'blue',val:st.temp,label:'Temp. sommet'},
+    {icon:'fa-snowflake',color:'cyan',val:st.snow,label:'Enneigement'},
+    {icon:'fa-sun',color:'amber',val:st.meteo,label:'Beau temps prévu'},
+    {icon:'fa-ski-lift',color:'violet',val:st.lifts,label:'Remontées ouvertes'},
+    {icon:'fa-route',color:'emerald',val:st.pistes,label:'Pistes ouvertes'},
+    {icon:'fa-ticket',color:'orange',val:st.forfait,label:'Forfait groupe'},
+  ];
+  const cellsHtml = cells.map(c => `<div class="card2 p-4 text-center"><i class="fa-solid ${c.icon} text-xl mb-2 text-${c.color}-400 block"></i><div class="text-xl font-black text-white">${c.val}</div><div class="text-xs text-slate-500">${c.label}</div></div>`).join('');
+  document.getElementById('panel-station').innerHTML = `
+    <h3 class="font-bold text-white mb-5 flex items-center gap-2"><i class="fa-solid fa-mountain text-cyan-400"></i>${st.title}</h3>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">${cellsHtml}</div>
+    <div class="rounded-xl p-4" style="background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.2);">
+      <p class="text-emerald-400 text-sm font-semibold">${st.alert}</p>
+      <p class="text-slate-400 text-xs mt-1">${st.alertSub}</p>
+    </div>`;
+
+  // Update tab label for surf
+  if (isSurf) {
+    document.getElementById('station-icon').className = 'fa-solid fa-water mr-1.5';
+    document.getElementById('station-tab-label').textContent = 'Météo Surf';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BUDGET / TRICOUNT
+// ═══════════════════════════════════════════════════════════════════════════
+function renderBudget() {
+  const fixedLines = TRIP.budgetLines.map(bl => {
+    const colors = {emerald:'text-emerald-400',amber:'text-amber-400'};
+    return `<div class="flex items-center justify-between py-2 border-b border-slate-800/60">
+      <div><div class="text-sm font-semibold text-white">${bl.name}</div><div class="text-xs text-slate-500">${bl.sub}</div></div>
+      <div class="text-right">
+        <div class="text-sm font-bold text-white">${bl.amount}</div>
+        <span class="text-xs font-bold ${colors[bl.statusColor]||'text-slate-400'}">${bl.statusLabel}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('panel-budget').innerHTML = `
+    <h3 class="font-bold text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-wallet text-cyan-400"></i>Budget partagé — style Tricount</h3>
+    <div class="space-y-1 mb-5 pb-5 border-b border-slate-800">${fixedLines}</div>
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-semibold text-white">Dépenses du voyage</span>
+        <button onclick="toggleAddExpense()" class="text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3);color:#22d3ee;"><i class="fa-solid fa-plus text-xs"></i> Ajouter</button>
+      </div>
+      <div id="expense-form" class="hidden slide-up card2 p-4 mb-4 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs text-slate-400 mb-1 block">Titre</label><input id="exp-title" type="text" placeholder="Ex: Courses raclette" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-cyan-400 transition-colors"></div>
+          <div><label class="text-xs text-slate-400 mb-1 block">Montant (€)</label><input id="exp-amount" type="number" placeholder="Ex: 85" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-cyan-400 transition-colors"></div>
+        </div>
+        <div><label class="text-xs text-slate-400 mb-1 block">Payé par</label>
+          <select id="exp-payer" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs cursor-pointer focus:outline-none">
+            ${TRIP.memberKeys.map(k=>`<option value="${k}">${MEMBER_NAMES[k]||k}${ALL_MEMBERS[k]?.isSelf?' (moi)':''}</option>`).join('')}
+          </select>
+        </div>
+        <div><label class="text-xs text-slate-400 mb-2 block">Participants</label>
+          <div class="flex flex-wrap gap-2">
+            ${TRIP.memberKeys.map(k=>`<label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="${k}" checked class="exp-part-check"><span class="text-xs text-slate-300">${MEMBER_NAMES[k]||k}</span></label>`).join('')}
+          </div>
+        </div>
+        <button onclick="addExpense()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition-all">✓ Ajouter la dépense</button>
+      </div>
+      <div id="expense-list" class="space-y-2"><p class="text-xs text-slate-500 italic">Aucune dépense ajoutée.</p></div>
+    </div>
+    <div>
+      <div class="flex items-center gap-2 mb-3"><i class="fa-solid fa-scale-balanced text-cyan-400 text-sm"></i><span class="text-sm font-semibold text-white">Équilibres</span></div>
+      <div id="balance-list" class="text-xs text-slate-500 italic">Aucune dépense pour l'instant.</div>
+    </div>
+    <div class="mt-5 p-4 card2 flex items-center justify-between">
+      <div><div class="text-xs text-slate-500 mb-1">Budget total / personne</div>
+        <div class="text-3xl font-black" id="budget-total" style="background:linear-gradient(to right,#22d3ee,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${TRIP.budget.label}</div>
+      </div>
+      <div class="text-right"><div class="text-xs text-emerald-400 font-semibold mb-1">💰 Économie réalisée</div>
+        <div class="text-2xl font-black text-emerald-400">-${TRIP.budget.saving}</div>
+        <div class="text-xs text-slate-500">vs voyage solo</div>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BUDGET JS (Tricount)
+// ═══════════════════════════════════════════════════════════════════════════
+function toggleAddExpense() {
+  const f = document.getElementById('expense-form');
+  const hidden = f.classList.contains('hidden');
+  f.classList.toggle('hidden', !hidden);
+  if (!f.classList.contains('hidden')) { f.classList.remove('slide-up'); void f.offsetWidth; f.classList.add('slide-up'); }
+}
+function addExpense() {
+  const title=document.getElementById('exp-title').value.trim();
+  const amount=parseFloat(document.getElementById('exp-amount').value);
+  const payer=document.getElementById('exp-payer').value;
+  const parts=[...document.querySelectorAll('.exp-part-check:checked')].map(c=>c.value);
+  if(!title||!amount||!parts.length){showToast('⚠️ Remplis tous les champs !');return;}
+  expenses.push({title,amount,payer,parts,id:Date.now()});
+  document.getElementById('exp-title').value='';document.getElementById('exp-amount').value='';
+  document.getElementById('expense-form').classList.add('hidden');
+  renderExpenses();renderBalances();updateBudgetTotal();showToast('✓ Dépense ajoutée');
+}
+function removeExpense(id){expenses=expenses.filter(e=>e.id!==id);renderExpenses();renderBalances();updateBudgetTotal();}
+function renderExpenses(){
+  const el=document.getElementById('expense-list');
+  if(!el)return;
+  el.innerHTML=expenses.map(e=>`<div class="expense-row flex items-center justify-between card2 px-4 py-3">
+    <div><div class="text-sm font-semibold text-white">${e.title}</div><div class="text-xs text-slate-500">payé par <span style="color:#22d3ee;">${MEMBER_NAMES[e.payer]||e.payer}</span> · ${e.parts.length} pers.</div></div>
+    <div class="flex items-center gap-3"><span class="text-sm font-bold text-white">${e.amount.toFixed(2)}€</span><button onclick="removeExpense(${e.id})" class="text-slate-600 hover:text-red-400 transition-colors text-xs" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button></div>
+  </div>`).join('')||'<p class="text-xs text-slate-500 italic">Aucune dépense ajoutée.</p>';
+}
+function renderBalances(){
+  const bal={};TRIP.memberKeys.forEach(k=>bal[k]=0);
+  expenses.forEach(e=>{const s=e.amount/e.parts.length;bal[e.payer]+=e.amount;e.parts.forEach(p=>bal[p]-=s);});
+  const d=Object.entries(bal).filter(([,v])=>v<-.01).sort((a,b)=>a[1]-b[1]);
+  const c=Object.entries(bal).filter(([,v])=>v>.01).sort((a,b)=>b[1]-a[1]);
+  const txns=[];let di=0,ci=0;
+  const da=d.map(([k,v])=>[k,Math.abs(v)]),ca=c.map(([k,v])=>[k,v]);
+  while(di<da.length&&ci<ca.length){const a=Math.min(da[di][1],ca[ci][1]);txns.push({from:da[di][0],to:ca[ci][0],amt:a});da[di][1]-=a;ca[ci][1]-=a;if(da[di][1]<.01)di++;if(ca[ci][1]<.01)ci++;}
+  const el=document.getElementById('balance-list');if(!el)return;
+  if(!txns.length){el.innerHTML='<p class="text-xs text-slate-500 italic">Tout le monde est à égalité ✓</p>';return;}
+  el.innerHTML=txns.map(t=>`<div class="flex items-center justify-between card2 px-4 py-2.5 mb-1">
+    <div class="flex items-center gap-2"><span class="text-xs font-semibold text-red-400">${MEMBER_NAMES[t.from]||t.from}</span><i class="fa-solid fa-arrow-right text-slate-600 text-xs"></i><span class="text-xs font-semibold text-emerald-400">${MEMBER_NAMES[t.to]||t.to}</span></div>
+    <span class="text-sm font-black text-white">${t.amt.toFixed(2)}€</span>
+  </div>`).join('');
+}
+function updateBudgetTotal(){
+  const parsed=parseInt(TRIP.budget.label);
+  const base=isNaN(parsed)?579:parsed;
+  const extra=expenses.filter(e=>e.parts.includes('R')).reduce((s,e)=>s+e.amount/e.parts.length,0);
+  const el=document.getElementById('budget-total');
+  if(el)el.textContent=`${(base+extra).toFixed(0)}€`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  COURSES
+// ═══════════════════════════════════════════════════════════════════════════
+function renderCourses(){
+  document.getElementById('panel-courses').innerHTML=`
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-white flex items-center gap-2"><i class="fa-solid fa-basket-shopping text-cyan-400"></i>Liste de Courses 🧀</h3>
+      <button onclick="toggleShopForm()" id="shop-add-btn" class="text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3);color:#22d3ee;"><i class="fa-solid fa-plus text-xs"></i> Ajouter</button>
+    </div>
+    <div id="shop-form" class="hidden slide-up card2 p-4 mb-4 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-400 mb-1 block">Article</label><input id="shop-title" type="text" placeholder="Ex: Raclette 🧀" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-cyan-400 transition-colors"></div>
+        <div><label class="text-xs text-slate-400 mb-1 block">Prix (€)</label><input id="shop-price" type="number" placeholder="Ex: 28" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-cyan-400 transition-colors"></div>
+      </div>
+      <div><label class="text-xs text-slate-400 mb-1 block">Payé par</label>
+        <select id="shop-payer" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs cursor-pointer focus:outline-none">
+          ${TRIP.memberKeys.map(k=>`<option value="${k}">${MEMBER_NAMES[k]||k}${ALL_MEMBERS[k]?.isSelf?' (moi)':''}</option>`).join('')}
+        </select>
+      </div>
+      <div><label class="text-xs text-slate-400 mb-2 block">Participants</label>
+        <div class="flex flex-wrap gap-2">
+          ${TRIP.memberKeys.map(k=>`<label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="${k}" checked class="shop-part-check"><span class="text-xs text-slate-300">${MEMBER_NAMES[k]||k}</span></label>`).join('')}
+        </div>
+      </div>
+      <button onclick="addShopItem()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition-all">✓ Ajouter l'article</button>
+    </div>
+    <div id="shop-list" class="space-y-2"></div>
+    <div class="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
+      <span class="text-sm text-slate-400">Total ma part courses</span>
+      <span id="shop-my-total" class="text-lg font-black text-cyan-400">0.00€</span>
+    </div>`;
+  renderShopList();
+}
+
+function toggleShopForm(){
+  const f=document.getElementById('shop-form'),btn=document.getElementById('shop-add-btn');
+  const hidden=f.classList.contains('hidden');
+  f.classList.toggle('hidden',!hidden);
+  if(!f.classList.contains('hidden')){f.classList.remove('slide-up');void f.offsetWidth;f.classList.add('slide-up');document.getElementById('shop-title').focus();}
+  btn.innerHTML=hidden?'<i class="fa-solid fa-xmark text-xs"></i> Fermer':'<i class="fa-solid fa-plus text-xs"></i> Ajouter';
+}
+function addShopItem(){
+  const name=document.getElementById('shop-title').value.trim();
+  const price=parseFloat(document.getElementById('shop-price').value);
+  const payer=document.getElementById('shop-payer').value;
+  const parts=[...document.querySelectorAll('.shop-part-check:checked')].map(c=>c.value);
+  if(!name||!price||!parts.length){showToast('⚠️ Remplis tous les champs !');return;}
+  shopItems.push({id:shopIdCounter++,name,price,payer,active:parts});
+  document.getElementById('shop-title').value='';document.getElementById('shop-price').value='';
+  document.querySelectorAll('.shop-part-check').forEach(c=>c.checked=true);
+  toggleShopForm();renderShopList();syncShopToBudget();showToast('✓ Article ajouté 🛒');
+}
+function renderShopList(){
+  const el=document.getElementById('shop-list');if(!el)return;
+  el.innerHTML=shopItems.map(item=>{
+    const ac=item.active.length;
+    const myShare=item.active.includes('R')?(item.price/Math.max(ac,1)).toFixed(2):'0.00';
+    const payerName=MEMBER_NAMES[item.payer]||item.payer||'';
+    const avs=MEMBERS_SHOP.map(m=>`<div class="mini-avatar bg-gradient-to-br ${m.color} ${m.text} ${item.active.includes(m.key)?'active':'inactive'}" title="${MEMBER_NAMES[m.key]||m.key}" onclick="toggleShopMember(${item.id},'${m.key}')">${m.label}</div>`).join('');
+    return `<div class="expense-row flex items-center justify-between card2 px-4 py-3 gap-3">
+      <div class="flex-grow min-w-0">
+        <div class="text-sm font-semibold text-white truncate">${item.name}</div>
+        <div class="text-xs text-slate-500 mt-0.5">payé par <span style="color:#22d3ee;">${payerName}</span> · ${ac} participant${ac>1?'s':''}</div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <div class="flex gap-0.5">${avs}</div>
+        <div class="text-right"><div class="text-sm font-bold text-white">${item.price.toFixed(2)}€</div><div class="text-xs text-cyan-400">Ta part : ${myShare}€</div></div>
+        <button onclick="removeShopItem(${item.id})" class="text-slate-600 hover:text-red-400 transition-colors text-xs ml-1" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('')||'<p class="text-xs text-slate-500 italic py-2">Liste vide !</p>';
+  updateShopTotal();
+}
+function toggleShopMember(id,k){const i=shopItems.find(x=>x.id===id);if(!i)return;const idx=i.active.indexOf(k);if(idx===-1)i.active.push(k);else i.active.splice(idx,1);renderShopList();syncShopToBudget();}
+function removeShopItem(id){shopItems=shopItems.filter(i=>i.id!==id);renderShopList();syncShopToBudget();}
+function updateShopTotal(){const t=shopItems.filter(i=>i.active.includes('R')).reduce((s,i)=>s+i.price/Math.max(i.active.length,1),0);const el=document.getElementById('shop-my-total');if(el)el.textContent=t.toFixed(2)+'€';}
+function syncShopToBudget(){
+  const tot=shopItems.reduce((s,i)=>s+i.price,0);
+  const idx=expenses.findIndex(e=>e.title==='🛒 Courses collectives');
+  if(tot<.01){if(idx!==-1)expenses.splice(idx,1);}
+  else{const entry={title:'🛒 Courses collectives',amount:tot,payer:'R',parts:TRIP.memberKeys,id:idx!==-1?expenses[idx].id:Date.now()};if(idx!==-1)expenses[idx]=entry;else expenses.push(entry);}
+  renderExpenses();renderBalances();updateBudgetTotal();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ARCHIVES
+// ═══════════════════════════════════════════════════════════════════════════
+function renderArchives(){
+  const container = document.getElementById('panel-archives');
+  if (!container) return;
+
+  const now    = new Date();
+  const tripId = TRIP.id;
+  const isPast = new Date(TRIP.dateEnd) < now;
+
+  // Section Souvenirs: uniquement les étapes de CE dashboard
+  // Si le trip est actif: on affiche les étapes passées intra-trip
+  // Si le trip est archivé: on affiche tout le roadmap comme souvenir
+
+  const pastSteps = isPast
+    ? TRIP.roadmap  // tout le roadmap = souvenir
+    : TRIP.roadmap.filter(r => new Date(r.date) < now);
+
+  const storedPhotos = JSON.parse(localStorage.getItem('snm_photos_' + tripId) || '[]');
+
+  if (!isPast && !pastSteps.length) {
+    container.innerHTML = `
+      <div class="flex items-center gap-3 mb-5">
+        <i class="fa-solid fa-box-archive text-violet-400 text-lg"></i>
+        <div><h3 class="font-bold text-white">Souvenirs — ${TRIP.name}</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Les étapes passées de ce trip apparaîtront ici.</p></div>
+      </div>
+      <div class="text-center py-8">
+        <div class="text-4xl mb-3">${TRIP.emoji}</div>
+        <div class="font-semibold text-slate-400">Aucun souvenir pour l'instant</div>
+        <div class="text-xs text-slate-600 mt-1">Le trip est en cours — les souvenirs s'accumuleront au fil des étapes.</div>
+      </div>`;
+    return;
+  }
+
+  const stepsHtml = pastSteps.map(r => `
+    <div class="flex items-center gap-3 px-3 py-2 rounded-xl" style="background:rgba(5,8,20,.55);">
+      <i class="fa-solid ${r.icon} text-sm flex-shrink-0" style="color:rgba(34,211,238,.7);width:20px;text-align:center;"></i>
+      <div class="flex-grow min-w-0">
+        <div class="text-xs font-semibold text-slate-300 truncate">${r.title}</div>
+        <div class="text-xs text-slate-600 truncate">${r.sub}</div>
+      </div>
+      <span class="text-xs text-slate-600 flex-shrink-0">${new Date(r.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span>
+    </div>`).join('');
+
+  const photosHtml = storedPhotos.length
+    ? `<div class="grid grid-cols-3 gap-2 mt-4">${storedPhotos.map((src,idx) => `<div style="position:relative;border-radius:12px;overflow:hidden;aspect-ratio:1;cursor:pointer;" onclick="navPhotoLightbox(null,'${src}','Souvenir ${TRIP.name}')"><img src="${src}" style="width:100%;height:100%;object-fit:cover;"><button onclick="event.stopPropagation();deleteArchivePhoto('${tripId}',${idx})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border:none;color:#f87171;border-radius:50%;width:22px;height:22px;font-size:.65rem;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);" title="Supprimer">✕</button></div>`).join('')}</div>`
+    : '';
+
+  container.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-box-archive text-violet-400 text-lg"></i>
+        <div>
+          <h3 class="font-bold text-white">Souvenirs — ${TRIP.name} ${TRIP.emoji}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">${isPast ? 'Trip archivé · ' + formatDateRange(TRIP.dateStart,TRIP.dateEnd) : 'Étapes passées de ce trip'}</p>
+        </div>
+      </div>
+      ${isPast ? '<span class="text-xs px-2.5 py-0.5 rounded-full font-bold flex-shrink-0" style="background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.28);color:#a78bfa;">📸 Archivé</span>' : ''}
+    </div>
+
+    <div class="space-y-1.5 mb-4">${stepsHtml}</div>
+
+    ${photosHtml}
+
+    <div class="flex gap-2 mt-4 ${storedPhotos.length?'pt-4 border-t border-slate-800':''}">
+      <input type="file" id="snm-archive-upload" accept="image/*" multiple style="display:none" onchange="handleArchivePhotos('${tripId}',this,true)">
+      <button onclick="document.getElementById('snm-archive-upload').click()" class="flex-1 text-xs px-3 py-2 rounded-full font-semibold transition-all hover:brightness-110" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.28);color:#a78bfa;"><i class="fa-solid fa-upload mr-1"></i>Ajouter des photos</button>
+      <button onclick="recreerTrip('${tripId}')" class="flex-1 text-xs px-3 py-2 rounded-full font-semibold transition-all hover:brightness-110" style="background:rgba(71,85,105,.12);border:1px solid rgba(71,85,105,.28);color:#94a3b8;">🔄 Recréer ce trip</button>
+    </div>`;
+}
+
+function openPhotosModal(tripId){
+  const trip=SMATCH_TRIPS[tripId];if(!trip)return;
+  const modal=document.getElementById('photos-modal');
+  const inner=document.getElementById('photos-modal-inner');
+  const storedPhotos=JSON.parse(localStorage.getItem('snm_photos_'+tripId)||'[]');
+  const defaultPhotos=[{emoji:'🏔️',caption:'Premier jour'},{emoji:'🍻',caption:'Après-ski'},{emoji:'🧀',caption:'Soirée raclette'},{emoji:'❄️',caption:'Poudreuse'},{emoji:'🛷',caption:'Session luge'},{emoji:'🌅',caption:'Lever de soleil'}];
+  const photosHtml=defaultPhotos.map((p,i)=>`<div class="card2 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02]" style="aspect-ratio:1;" onclick="navPhotoLightbox('${p.emoji}',null,'${p.caption}')"><span style="font-size:2.2rem;">${p.emoji}</span><span class="text-xs text-slate-500 text-center px-2">${p.caption}</span></div>`).join('')
+    + storedPhotos.map((src,i)=>`<div class="rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02]" style="aspect-ratio:1;" onclick="navPhotoLightbox(null,'${src}','Photo ajoutée')"><img src="${src}" style="width:100%;height:100%;object-fit:cover;"></div>`).join('');
+  inner.innerHTML=`
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-950/98 z-10">
+      <div><div class="text-xs font-bold text-violet-400 uppercase tracking-wider mb-0.5">Souvenirs</div><div class="text-lg font-extrabold text-white">📸 ${trip.name}</div></div>
+      <button onclick="document.getElementById('photos-modal').classList.remove('open')" class="text-slate-500 hover:text-white text-lg" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="p-4 grid grid-cols-2 gap-3">${photosHtml}</div>
+    <div class="px-4 pb-4 text-center">
+      <input type="file" id="pm-upload" accept="image/*" multiple style="display:none" onchange="handleArchivePhotos('${tripId}',this,true)">
+      <button onclick="document.getElementById('pm-upload').click()" class="text-xs px-4 py-2 rounded-full font-semibold transition-all" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.28);color:#a78bfa;"><i class="fa-solid fa-upload mr-1.5"></i>Ajouter des photos</button>
+    </div>`;
+  modal.classList.add('open');
+}
+
+function handleArchivePhotos(tripId, input, fromModal=false){
+  if(!input.files||!input.files.length)return;
+  const stored=JSON.parse(localStorage.getItem('snm_photos_'+tripId)||'[]');
+  const count=input.files.length;
+  let processed=0;
+  Array.from(input.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      stored.push(ev.target.result);
+      processed++;
+      if(processed===count){
+        localStorage.setItem('snm_photos_'+tripId,JSON.stringify(stored));
+        showToast(`📸 ${count} photo${count>1?'s':''} ajoutée${count>1?'s':''} !`);
+        if(fromModal) openPhotosModal(tripId);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function recreerTrip(tripId){
+  const trip=SMATCH_TRIPS[tripId];if(!trip)return;
+  localStorage.setItem('snm_mode',trip.mode);
+  localStorage.setItem('snm_recree_trip_id',tripId);
+  localStorage.setItem('snm_recree_spot',trip.spot);
+  showToast(`🔄 Trip "${trip.name}" prêt à recréer…`);
+  setTimeout(()=>window.location.href='recherche.html?recree=1',1100);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MEMBERS
+// ═══════════════════════════════════════════════════════════════════════════
+// Renvoie une initiale propre pour l'avatar (gère les clés longues type inc_xxx)
+function avatarLetter(k, m) {
+  if (k && k.length === 1) return k; // clé annuaire classique (R, L, S...)
+  const name = (m && m.name) || MEMBER_NAMES[k] || '';
+  return name ? name.charAt(0).toUpperCase() : '?';
+}
+
+function renderMembers(){
+  const status=localStorage.getItem('snm_status')||'ready';
+  const rows=TRIP.memberKeys.map((k,i)=>{
+    const m=ALL_MEMBERS[k];if(!m)return'';
+    const compat=i===0?null:[94,87,79,71][i-1]||65;
+    const dotColor=i<3?'bg-emerald-400':'bg-slate-500';
+    const compatBadge=compat?`<span class="text-xs" style="color:${compat>90?'#22d3ee':compat>80?'#a78bfa':'#fb923c'}">${compat}%</span>`:'';
+    const editBtn=m.isSelf?`<button onclick="openProfile('${k}')" class="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 rounded-lg" style="background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);color:#22d3ee;">✏️</button>`:'';
+    // Show live status on self
+    const statusDot = m.isSelf
+      ? (status==='ready'?'<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900"></div>':'<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-slate-900"></div>')
+      : `<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 ${dotColor} rounded-full border-2 border-slate-900"></div>`;
+    return `<div class="flex items-center gap-3 group">
+      <div class="member-wrap" onclick="openProfile('${k}')">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center ${m.tc} font-black text-sm transition-transform duration-200 group-hover:scale-110">${avatarLetter(k, m)}</div>
+        ${statusDot}
+        <div class="member-tooltip">Voir le profil</div>
+      </div>
+      <div class="flex-grow min-w-0">
+        <div class="text-sm font-semibold text-white truncate">${m.name}${m.isSelf?' <span class="text-cyan-400 text-xs">(toi)</span>':''}</div>
+        <div class="text-xs text-slate-500 truncate">${m.sport} · ${m.level} · ${m.city}</div>
+      </div>
+      ${compatBadge}${editBtn}
+    </div>`;
+  }).join('');
+
+  document.getElementById('panel-members').innerHTML=`
+    <h3 class="font-bold text-white text-sm mb-4 flex items-center gap-2">
+      <i class="fa-solid fa-people-group text-cyan-400"></i>Le Crew (${TRIP.members})
+      <span class="ml-auto flex items-center gap-1 text-xs text-emerald-400 font-normal">
+        <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></div>
+        ${localStorage.getItem('snm_status')==='passive'?'🟠 Passif':'🟢 Prêt'}
+      </span>
+    </h3>
+    <div class="space-y-3">${rows}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CHAT
+// ═══════════════════════════════════════════════════════════════════════════
+function renderChat(){
+  // Source unique : chat persisté (fusionne le chat de base + messages ajoutés)
+  if (typeof smatchGetCrewChat === 'function') {
+    TRIP.chat = smatchGetCrewChat(TRIP.id, TRIP.chat || []);
+  }
+  const messagesHtml=TRIP.chat.map(msg=>{
+    const m=ALL_MEMBERS[msg.key];
+    if(msg.me){
+      return `<div class="flex flex-row-reverse gap-2 items-end">
+        <div class="w-6 h-6 rounded-full bg-gradient-to-br ${m?.color||'from-cyan-400 to-blue-600'} flex items-center justify-center ${m?.tc||'text-slate-950'} font-black text-xs flex-shrink-0">${avatarLetter(msg.key, m)}</div>
+        <div class="flex flex-col items-end max-w-[78%] min-w-0"><div class="bubble-me px-3.5 py-2 text-[13px] leading-snug text-white" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;">${msg.msg}</div><div class="text-slate-600 text-[11px] mt-0.5 mr-1">Toi · ${msg.time}</div></div>
+      </div>`;
+    }
+    return `<div class="flex gap-2 items-end">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br ${m?.color||'from-slate-600 to-slate-800'} flex items-center justify-center ${m?.tc||'text-white'} font-black text-xs flex-shrink-0">${avatarLetter(msg.key, m)}</div>
+      <div class="flex flex-col items-start max-w-[78%] min-w-0"><div class="bubble-them px-3.5 py-2 text-[13px] leading-snug text-slate-200" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;">${msg.msg}</div><div class="text-slate-600 text-[11px] mt-0.5 ml-1">${msg.name} · ${msg.time}</div></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('panel-chat').innerHTML=`
+    <h3 class="font-bold text-white text-sm mb-4 flex items-center gap-2 flex-shrink-0">
+      <i class="fa-solid fa-comments text-cyan-400"></i>Chat du crew
+      <div class="flex items-center gap-1 ml-auto"><div class="w-1.5 h-1.5 bg-emerald-400 rounded-full live-dot"></div><span class="text-xs text-emerald-400 font-normal">Live</span></div>
+    </h3>
+    <div class="flex-grow overflow-y-auto chat-scroll space-y-3 mb-3 pr-1" id="chat-messages">${messagesHtml}</div>
+    <div class="flex gap-2 flex-shrink-0">
+      <input type="text" id="chatInput" placeholder="Envoie un message…" class="flex-grow bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-cyan-400 transition-colors">
+      <button onclick="sendMessage()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold px-3 py-2 rounded-xl transition-all text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>`;
+
+  document.getElementById('chatInput').addEventListener('keydown', e => { if(e.key==='Enter') sendMessage(); });
+  const chatEl=document.getElementById('chat-messages');
+  if(chatEl)chatEl.scrollTop=chatEl.scrollHeight;
+}
+
+function sendMessage(){
+  const inp=document.getElementById('chatInput');const msg=inp.value.trim();if(!msg)return;
+  const chat=document.getElementById('chat-messages');
+  const m=ALL_MEMBERS['R'];
+  const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  const d=document.createElement('div');d.className='flex flex-row-reverse gap-2 items-end';
+  d.innerHTML=`<div class="w-6 h-6 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center ${m.tc} font-black text-xs flex-shrink-0">R</div><div class="flex flex-col items-end max-w-[78%] min-w-0"><div class="bubble-me px-3.5 py-2 text-[13px] leading-snug text-white" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;">${msg}</div><div class="text-slate-600 text-[11px] mt-0.5 mr-1">Toi · ${now}</div></div>`;
+  chat.appendChild(d);chat.scrollTop=chat.scrollHeight;inp.value='';
+  // Persiste le message
+  if (typeof smatchAddCrewChatMessage === 'function') smatchAddCrewChatMessage(TRIP.id, { key:'R', name:'Toi', msg, time:now, me:true }, TRIP.chat||[]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PROFIL MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+function openProfile(key){
+  currentMember=key;userRating=0;
+  const m=ALL_MEMBERS[key];if(!m)return;
+  const av=document.getElementById('modal-avatar');
+  av.className=`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl flex-shrink-0 relative bg-gradient-to-br ${m.color} ${m.tc}`;
+  const selfStatus = localStorage.getItem('snm_status') || 'ready';
+  const selfDotColor = m.isSelf ? (selfStatus==='passive' ? 'bg-amber-500' : 'bg-emerald-400') : 'bg-emerald-400';
+  av.innerHTML=`${avatarLetter(key, m)}<div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-slate-900 ${selfDotColor}"></div>`;
+  document.getElementById('modal-name').textContent=m.name+(m.isSelf?' (toi)':'');
+  document.getElementById('modal-sub').textContent=`${m.age} ans · ${m.city} · ${m.sport} · ${m.level}`;
+  document.getElementById('modal-tags').innerHTML=m.kiffs.map(k=>`<span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2);color:#67e8f9;">${k}</span>`).join('');
+  document.getElementById('modal-stats').innerHTML=`
+    <div class="card2 p-3 text-center"><div class="text-xs text-slate-500 mb-1">Discipline</div><div class="text-sm font-bold text-white">${m.sport}</div></div>
+    <div class="card2 p-3 text-center"><div class="text-xs text-slate-500 mb-1">Niveau</div><div class="text-sm font-bold text-white">${m.level}</div></div>
+    <div class="card2 p-3 text-center"><div class="text-xs text-slate-500 mb-1">Ville</div><div class="text-sm font-bold text-white">${m.city}</div></div>
+    <div class="card2 p-3 text-center"><div class="text-xs text-slate-500 mb-1">Âge</div><div class="text-sm font-bold text-white">${m.age} ans</div></div>`;
+  document.getElementById('modal-bio').textContent=m.bio;
+  renderAdventurerSection('modal-adventurer', key, '#22d3ee');
+  document.getElementById('btn-edit-profile').style.display=m.isSelf?'flex':'none';
+  document.getElementById('modal-edit-mode').classList.add('hidden');
+  document.getElementById('modal-info-view').style.display='';
+  const phoneShared = (localStorage.getItem('snm_setting_show_phone') === '1');
+  const phoneBlock = (m.isSelf && !phoneShared)
+    ? `<div class="flex-1 flex items-center justify-center gap-2 text-slate-500 text-xs font-bold py-2.5 rounded-xl" style="background:rgba(71,85,105,.08);border:1px solid rgba(71,85,105,.2);"><i class="fa-solid fa-phone-slash"></i> Numéro masqué</div>`
+    : `<a href="tel:${m.phone}" class="flex-1 flex items-center justify-center gap-2 text-emerald-400 text-xs font-bold py-2.5 rounded-xl transition-all hover:opacity-80" style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);text-decoration:none;"><i class="fa-solid fa-phone"></i> Appeler</a>`;
+  document.getElementById('modal-contacts').innerHTML=`
+    ${phoneBlock}
+    <button onclick="openPrivateChat('${currentMember}')" class="flex-1 flex items-center justify-center gap-2 text-xs font-bold py-2.5 rounded-xl transition-all" style="background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:#22d3ee;"><i class="fa-solid fa-message"></i> Message</button>`;
+  document.getElementById('modal-score').textContent=`${m.rating}/5 (${m.rCnt} avis)`;
+  renderStars(0);
+  document.getElementById('modal-comments').innerHTML=m.comments.map(c=>`
+    <div class="cmt-pop card2 p-3"><div class="flex items-center justify-between mb-1.5"><div class="flex items-center gap-2"><span class="text-xs font-bold text-white">${c.author}</span></div><div class="flex items-center gap-2"><span class="text-xs text-cyan-400">${'★'.repeat(c.stars)}${'☆'.repeat(5-c.stars)}</span>${c.date?`<span class="text-xs text-slate-600">${c.date}</span>`:''}</div></div><p class="text-xs text-slate-400">${c.text}</p></div>`).join('');
+  document.getElementById('profile-modal').classList.add('open');
+}
+function closeProfile(){document.getElementById('profile-modal').classList.remove('open');}
+function injectChat(name){closeProfile();const inp=document.getElementById('chatInput');if(inp){inp.value=`@${name} `;inp.focus();}}
+function openPrivateChat(key){
+  const m = ALL_MEMBERS[key];
+  if (!m) return;
+  if (m.isSelf) { showToast('😅 C\'est toi ! Tu ne peux pas t\'envoyer de message.'); return; }
+  closeProfile();
+  // Détermine l'emoji selon le sport
+  const sportEmoji = m.sport && m.sport.toLowerCase().includes('surf') ? '🏄'
+    : m.sport && m.sport.toLowerCase().includes('ski') ? '🎿'
+    : m.sport && m.sport.toLowerCase().includes('snow') ? '🏂' : '👋';
+  if (typeof navOpenConvWith === 'function') {
+    navOpenConvWith(m.name, key, m.color, sportEmoji);
+  }
+}
+function enterEditMode(){const m=ALL_MEMBERS[currentMember];document.getElementById('edit-pseudo').value=m.name;document.getElementById('edit-bio').value=m.bio;document.getElementById('edit-ville').value=m.city;document.getElementById('edit-age').value=m.age;document.getElementById('modal-info-view').style.display='none';document.getElementById('modal-edit-mode').classList.remove('hidden');}
+function cancelEdit(){document.getElementById('modal-edit-mode').classList.add('hidden');document.getElementById('modal-info-view').style.display='';}
+function saveEdit(){
+  const m=ALL_MEMBERS[currentMember];
+  m.name=document.getElementById('edit-pseudo').value||m.name;
+  m.bio=document.getElementById('edit-bio').value||m.bio;
+  m.city=document.getElementById('edit-ville').value||m.city;
+  m.age=parseInt(document.getElementById('edit-age').value)||m.age;
+  if(m.isSelf){localStorage.setItem('snm_pseudo',m.name);MEMBER_NAMES.R=m.name;}
+  showToast('✓ Profil mis à jour !');openProfile(currentMember);
+}
+
+// ── Stars ──────────────────────────────────────────────────────
+function renderStars(v){
+  const starsEl=document.getElementById('modal-stars');if(!starsEl)return;
+  starsEl.innerHTML=[1,2,3,4,5].map(i=>`<span class="star-btn ${i<=v?'lit':''}" onclick="rateMember(${i})" onmouseenter="renderStars(${i})" onmouseleave="renderStars(${userRating})" data-v="${i}">★</span>`).join('');
+  const lbl=document.getElementById('star-lbl');if(lbl)lbl.textContent=v>0?STAR_LBLS[v]:'';
+}
+function rateMember(v){
+  userRating=v;renderStars(v);
+  const m=ALL_MEMBERS[currentMember];
+  m.rCnt++;m.rating=Math.round((m.rating*(m.rCnt-1)+v)/m.rCnt*10)/10;
+  document.getElementById('modal-score').textContent=`${m.rating}/5 (${m.rCnt} avis)`;
+}
+function publishComment(){
+  const txt=document.getElementById('cmt-input').value.trim();
+  if(!txt){showToast('✏️ Écris un commentaire !');return;}
+  if(!userRating){showToast('⭐ Sélectionne une note !');return;}
+  const m=ALL_MEMBERS[currentMember];
+  const dateStr=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  m.comments.unshift({author:ALL_MEMBERS.R.name,text:txt,stars:userRating,date:dateStr});
+  const el=document.createElement('div');el.className='cmt-pop card2 p-3';
+  el.innerHTML=`<div class="flex items-center justify-between mb-1.5"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-black text-xs">R</div><span class="text-xs font-bold text-white">${ALL_MEMBERS.R.name} <span class="text-cyan-400">(toi)</span></span></div><div class="flex items-center gap-2"><span class="text-xs text-cyan-400">${'★'.repeat(userRating)}</span><span class="text-xs text-slate-600">${dateStr}</span></div></div><p class="text-xs text-slate-300">${txt}</p>`;
+  document.getElementById('modal-comments').insertBefore(el,document.getElementById('modal-comments').firstChild);
+  document.getElementById('cmt-input').value='';userRating=0;renderStars(0);
+  showToast('✓ Avis publié ! 🎉');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FOOTER ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function dashShareCrew(){
+  const link=`${window.location.origin}/dashboard_hiver.html?trip=${TRIP.id}`;
+  if(navigator.clipboard){navigator.clipboard.writeText(link).then(()=>showToast('🔗 Lien copié ! Partage-le à ton crew.'));}
+  else{const inp=Object.assign(document.createElement('input'),{value:link});document.body.appendChild(inp);inp.select();document.execCommand('copy');document.body.removeChild(inp);showToast('🔗 Lien copié !');}
+}
+
+function dashExportRoadmap(){
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//SnowMatch — Smatch//FR',
+    ...TRIP.export.icsEvents.map(e=>[
+      'BEGIN:VEVENT',
+      `DTSTART:${e.date.replace(/-/g,'')}T080000Z`,
+      `DTEND:${e.date.replace(/-/g,'')}T180000Z`,
+      `SUMMARY:${e.title} — ${TRIP.export.label}`,
+      `DESCRIPTION:${e.desc}`,
+      'END:VEVENT'
+    ].join('\n')),
+    'END:VCALENDAR'
+  ].join('\n');
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([ics],{type:'text/calendar'})),download:`smatch_${TRIP.id}_roadmap.ics`});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  showToast('📅 Roadmap exportée ! Ouvre le .ics dans ton agenda.');
+}
+
+function dashPayGroup(){
+  const modal=document.getElementById('pay-modal');
+  const inner=document.getElementById('pay-modal-inner');
+  const lines=TRIP.budgetLines.map(bl=>`<div class="flex justify-between items-center mb-2"><span class="text-xs text-slate-300">${bl.name}</span><span class="text-xs font-bold text-white">${bl.amount}</span></div>`).join('');
+  inner.innerHTML=`
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between"><div><div class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-0.5">Paiement groupé</div><div class="text-lg font-extrabold text-white">💳 Payer en groupe</div></div><button onclick="closePayModal()" class="text-slate-500 hover:text-white text-lg" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="p-5 space-y-4">
+      <div class="card2 p-4"><div class="text-xs font-bold text-slate-500 uppercase mb-3">Récapitulatif — ${TRIP.name}</div>${lines}<div class="border-t border-slate-700 mt-2 pt-2 flex justify-between"><span class="text-sm font-bold text-white">Total / personne</span><span class="text-lg font-black text-cyan-400">${TRIP.budget.label}</span></div></div>
+      <div><div class="text-xs font-bold text-slate-400 mb-2">Méthode de paiement</div>
+        <div class="flex gap-2">
+          <button onclick="selectPayMethod(this,'card')" data-pm="card" class="flex-1 text-xs font-bold py-2 rounded-lg border transition-all" style="background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.3);color:#22d3ee;">💳 Carte</button>
+          <button onclick="selectPayMethod(this,'paypal')" data-pm="paypal" class="flex-1 text-xs font-bold py-2 rounded-lg border transition-all" style="background:rgba(5,8,20,.5);border-color:rgba(30,41,59,.5);color:#64748b;">🅿️ PayPal</button>
+          <button onclick="selectPayMethod(this,'vir')" data-pm="vir" class="flex-1 text-xs font-bold py-2 rounded-lg border transition-all" style="background:rgba(5,8,20,.5);border-color:rgba(30,41,59,.5);color:#64748b;">🏦 Virement</button>
+        </div>
+      </div>
+      <button onclick="confirmPayment()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold py-3 rounded-xl text-sm transition-all"><i class="fa-solid fa-lock mr-1.5"></i>Confirmer — ${TRIP.budget.label}</button>
+      <p class="text-xs text-slate-600 text-center">🔒 Sécurisé · Remboursable 14j avant le départ</p>
+    </div>`;
+  modal.classList.add('open');
+}
+function closePayModal(){document.getElementById('pay-modal').classList.remove('open');}
+function selectPayMethod(btn,m){document.querySelectorAll('[data-pm]').forEach(b=>{b.style.background='rgba(5,8,20,.5)';b.style.borderColor='rgba(30,41,59,.5)';b.style.color='#64748b';});btn.style.background='rgba(34,211,238,.1)';btn.style.borderColor='rgba(34,211,238,.3)';btn.style.color='#22d3ee';}
+function confirmPayment(){
+  const inner=document.getElementById('pay-modal-inner');
+  inner.innerHTML=`<div class="p-10 text-center"><div class="text-5xl mb-4">✅</div><div class="text-xl font-extrabold text-white mb-2">Paiement confirmé !</div><div class="text-sm text-slate-400 mb-6">Récapitulatif envoyé à tout le crew.</div><div class="card2 p-4 mb-6"><div class="text-xs font-bold text-cyan-400 mb-1">${TRIP.name} · ${TRIP.spot}</div><div class="text-xs text-slate-500">Réf. : SNM-${Math.floor(Math.random()*99999)}</div></div><button onclick="closePayModal()" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold px-8 py-2.5 rounded-xl text-sm">Fermer</button></div>`;
+}
+
+function dashToggleParticipe(btn, activity){
+  const on=btn.dataset.participating==='true';
+  const trip=TRIP;const memberKey='R';
+  if(on){
+    btn.dataset.participating='false';
+    const count=parseInt(btn.querySelector('span')?.textContent||'2');
+    btn.innerHTML=`Je participe <span class="text-slate-500">(${count-1>0?count-1:1}/5)</span>`;
+    btn.style.cssText='';showToast(`❌ Tu t'es retiré de "${activity}".`);
+  } else {
+    btn.dataset.participating='true';
+    const count=parseInt(btn.querySelector('span')?.textContent||'2');
+    btn.innerHTML=`✓ Je participe <span style="color:#22d3ee;">(${count+1}/5)</span>`;
+    btn.style.background='rgba(34,211,238,.08)';btn.style.color='#22d3ee';btn.style.borderColor='rgba(34,211,238,.3)';
+    showToast(`✅ Tu participes à "${activity}" !`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  initPage();
+});
+
+// ─── PHOTO LIGHTBOX ──────────────────────────────────────────
+function navPhotoLightbox(emoji, imgSrc, caption) {
+  const existing = document.getElementById('snm-lightbox'); if(existing) existing.remove();
+  const div = document.createElement('div');
+  div.id = 'snm-lightbox';
+  div.style.cssText = 'position:fixed;inset:0;z-index:19999;background:rgba(0,0,0,.92);backdrop-filter:blur(16px);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;';
+  div.addEventListener('click', () => div.remove());
+  div.innerHTML = `
+    <div style="position:relative;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;align-items:center;gap:1rem;" onclick="event.stopPropagation()">
+      <button onclick="document.getElementById('snm-lightbox').remove()" style="position:absolute;top:-2.5rem;right:0;background:none;border:none;color:rgba(255,255,255,.6);font-size:1.5rem;cursor:pointer;transition:color .15s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='rgba(255,255,255,.6)'" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      ${imgSrc
+        ? `<img src="${imgSrc}" style="max-width:90vw;max-height:70vh;border-radius:16px;box-shadow:0 40px 80px rgba(0,0,0,.8);object-fit:contain;">`
+        : `<div style="width:min(360px,90vw);aspect-ratio:1;background:rgba(15,23,42,.85);border:1px solid rgba(30,41,59,.6);border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;box-shadow:0 40px 80px rgba(0,0,0,.7);"><span style="font-size:5rem;">${emoji}</span></div>`}
+      <div style="font-size:.88rem;font-weight:700;color:rgba(255,255,255,.85);text-align:center;">${caption}</div>
+      <div style="font-size:.7rem;color:rgba(255,255,255,.35);">Cliquer en dehors pour fermer</div>
+    </div>`;
+  document.body.appendChild(div);
+  document.addEventListener('keydown', function esc(e) { if(e.key==='Escape'){div.remove();document.removeEventListener('keydown',esc);}});
+}
+
+
+// ─── DELETE ARCHIVE PHOTO ────────────────────────────────────────────────────
+function deleteArchivePhoto(tripId, idx) {
+  const stored = JSON.parse(localStorage.getItem('snm_photos_' + tripId) || '[]');
+  stored.splice(idx, 1);
+  localStorage.setItem('snm_photos_' + tripId, JSON.stringify(stored));
+  showToast('🗑️ Photo supprimée');
+  renderArchives();
+}
+
+
+// ─── QUITTER LE CREW ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  ÉDITION DU CREW (titre, lieu, dates) + JOURNAL DES MODIFS
+// ═══════════════════════════════════════════════════════════════════════════
+function dashGetLog() {
+  try { return JSON.parse(localStorage.getItem('snm_crewlog_' + TRIP.id) || '[]'); } catch(e) { return []; }
+}
+function dashAddLog(action, detail) {
+  const log = dashGetLog();
+  log.unshift({
+    who: localStorage.getItem('snm_pseudo') || 'RiderDu74',
+    action: action, detail: detail || '', time: Date.now(),
+  });
+  localStorage.setItem('snm_crewlog_' + TRIP.id, JSON.stringify(log.slice(0, 100)));
+}
+
+function openEditCrew() {
+  const ex = document.getElementById('edit-crew-modal'); if (ex) ex.remove();
+  const modal = document.createElement('div');
+  modal.id = 'edit-crew-modal';
+  modal.className = 'snm-modal-overlay';
+  modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(2,6,23,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;';
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  modal.innerHTML = `
+    <div style="background:rgba(10,15,30,.98);border:1px solid ${AC}33;border-radius:22px;width:100%;max-width:420px;box-shadow:0 40px 80px rgba(0,0,0,.7);overflow:hidden;">
+      <div style="padding:1.2rem 1.3rem;border-bottom:1px solid rgba(30,41,59,.7);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:1rem;font-weight:800;color:#fff;">✏️ Modifier le crew</div>
+        <button onclick="document.getElementById('edit-crew-modal').remove()" aria-label="Fermer" style="color:#475569;background:none;border:none;cursor:pointer;font-size:1.1rem;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="padding:1.3rem;display:flex;flex-direction:column;gap:1rem;">
+        <div>
+          <label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">🏷️ Nom du crew</label>
+          <input id="edit-name" type="text" value="${(TRIP.name||'').replace(/"/g,'&quot;')}" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.85rem;outline:none;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'">
+        </div>
+        <div>
+          <label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📍 Lieu / Spot</label>
+          <input id="edit-spot" type="text" value="${(TRIP.spot||'').replace(/"/g,'&quot;')}" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.6rem .9rem;color:#e2e8f0;font-size:.85rem;outline:none;" onfocus="this.style.borderColor='${AC}'" onblur="this.style.borderColor='rgba(71,85,105,.5)'">
+        </div>
+        <div style="display:flex;gap:.7rem;">
+          <div style="flex:1;">
+            <label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📅 Départ</label>
+            <input id="edit-start" type="date" value="${TRIP.dateStart||''}" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.55rem .7rem;color:#e2e8f0;font-size:.8rem;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <label style="display:block;font-size:.7rem;font-weight:700;color:#94a3b8;margin-bottom:.4rem;">📅 Retour</label>
+            <input id="edit-end" type="date" value="${TRIP.dateEnd||''}" style="width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.55rem .7rem;color:#e2e8f0;font-size:.8rem;outline:none;">
+          </div>
+        </div>
+      </div>
+      <div style="padding:0 1.3rem 1.3rem;display:flex;gap:.7rem;">
+        <button onclick="document.getElementById('edit-crew-modal').remove()" style="flex:1;background:rgba(30,41,59,.65);border:1px solid rgba(71,85,105,.4);color:#94a3b8;font-weight:700;font-size:.82rem;padding:.7rem;border-radius:12px;cursor:pointer;">Annuler</button>
+        <button onclick="saveEditCrew()" style="flex:1.5;background:linear-gradient(135deg,${AC},${AC}cc);color:#020617;font-weight:800;font-size:.82rem;padding:.7rem;border-radius:12px;border:none;cursor:pointer;"><i class="fa-solid fa-check"></i> Enregistrer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function saveEditCrew() {
+  const newName  = document.getElementById('edit-name').value.trim();
+  const newSpot  = document.getElementById('edit-spot').value.trim();
+  const newStart = document.getElementById('edit-start').value;
+  const newEnd   = document.getElementById('edit-end').value;
+  const changes = [];
+  if (newName && newName !== TRIP.name)        { changes.push(`Nom : "${TRIP.name}" → "${newName}"`); TRIP.name = newName; }
+  if (newSpot && newSpot !== TRIP.spot)        { changes.push(`Lieu : "${TRIP.spot}" → "${newSpot}"`); TRIP.spot = newSpot; if (TRIP.station) TRIP.station.title = newSpot; }
+  if (newStart && newStart !== TRIP.dateStart) { changes.push(`Départ : ${TRIP.dateStart||'—'} → ${newStart}`); TRIP.dateStart = newStart; }
+  if (newEnd && newEnd !== TRIP.dateEnd)       { changes.push(`Retour : ${TRIP.dateEnd||'—'} → ${newEnd}`); TRIP.dateEnd = newEnd; }
+
+  if (!changes.length) { document.getElementById('edit-crew-modal').remove(); return; }
+
+  // Persiste dans le trip (fresh_trips) + l'entrée dashboard
+  _persistTripEdits();
+  changes.forEach(c => dashAddLog('✏️ Modification', c));
+
+  document.getElementById('edit-crew-modal').remove();
+  renderHeader();
+  if (typeof showToast === 'function') showToast('✅ Crew mis à jour');
+}
+
+function _persistTripEdits() {
+  // Met à jour snm_fresh_trips si c'est un crew créé, sinon stocke un override
+  try {
+    const fresh = JSON.parse(localStorage.getItem('snm_fresh_trips') || '{}');
+    if (fresh[TRIP.id]) {
+      fresh[TRIP.id].name = TRIP.name; fresh[TRIP.id].spot = TRIP.spot;
+      fresh[TRIP.id].dateStart = TRIP.dateStart; fresh[TRIP.id].dateEnd = TRIP.dateEnd;
+      if (fresh[TRIP.id].station) fresh[TRIP.id].station.title = TRIP.spot;
+      localStorage.setItem('snm_fresh_trips', JSON.stringify(fresh));
+    } else {
+      // Override pour les trips officiels (Chamonix, etc.)
+      const ov = JSON.parse(localStorage.getItem('snm_trip_overrides') || '{}');
+      ov[TRIP.id] = { name: TRIP.name, spot: TRIP.spot, dateStart: TRIP.dateStart, dateEnd: TRIP.dateEnd };
+      localStorage.setItem('snm_trip_overrides', JSON.stringify(ov));
+    }
+  } catch(e) {}
+  // Met à jour l'entrée dans snm_dashboards (nom, spot, dateEnd)
+  try {
+    const dbs = JSON.parse(localStorage.getItem('snm_dashboards') || '[]');
+    const d = dbs.find(x => x.id === TRIP.id);
+    if (d) { d.name = TRIP.name; d.spot = TRIP.spot; d.dateEnd = TRIP.dateEnd; localStorage.setItem('snm_dashboards', JSON.stringify(dbs)); }
+  } catch(e) {}
+}
+
+function renderLog() {
+  const log = dashGetLog();
+  const ago = (ts) => {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'à l\'instant';
+    if (s < 3600) return 'il y a ' + Math.floor(s/60) + ' min';
+    if (s < 86400) return 'il y a ' + Math.floor(s/3600) + ' h';
+    return new Date(ts).toLocaleDateString('fr-FR', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  };
+  const rows = log.map(l => `
+    <div style="display:flex;gap:.8rem;padding:.8rem 0;border-bottom:1px solid rgba(30,41,59,.5);">
+      <div style="width:34px;height:34px;border-radius:10px;background:${AC}14;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">${l.action.split(' ')[0]||'📝'}</div>
+      <div style="flex-grow:1;min-width:0;">
+        <div style="font-size:.82rem;color:#e2e8f0;font-weight:600;">${l.action.replace(/^\S+\s/,'')} <span style="color:#64748b;font-weight:400;">par ${l.who}</span></div>
+        ${l.detail?`<div style="font-size:.72rem;color:#94a3b8;margin-top:.15rem;">${l.detail}</div>`:''}
+        <div style="font-size:.62rem;color:#475569;margin-top:.2rem;">${ago(l.time)}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('panel-log').innerHTML = `
+    <h3 class="font-bold text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left" style="color:${AC};"></i>Journal du crew</h3>
+    ${log.length ? rows : `<div class="text-center py-10"><div class="text-4xl mb-3">📋</div><p class="text-white font-semibold text-sm mb-1">Aucune activité enregistrée</p><p class="text-slate-400 text-xs">Les modifications du crew (nom, dates, lieu, membres…) apparaîtront ici.</p></div>`}`;
+}
+
+function dashLeaveCrew() {
+  const existing = document.getElementById('leave-crew-modal');
+  if (existing) existing.remove();
+  const isEteMode = (typeof TRIP !== 'undefined' && TRIP.mode === 'ete');
+  const AC = isEteMode ? '#fbbf24' : '#22d3ee';
+  const modal = document.createElement('div');
+  modal.id = 'leave-crew-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(2,6,23,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;';
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  modal.innerHTML = `
+    <div style="background:rgba(10,15,30,.98);border:1px solid rgba(239,68,68,.3);border-radius:22px;width:92%;max-width:380px;box-shadow:0 40px 80px rgba(0,0,0,.7);overflow:hidden;animation:merge-flash .3s ease both;">
+      <div style="padding:1.4rem 1.4rem 1rem;text-align:center;">
+        <div style="font-size:2.8rem;margin-bottom:.6rem;">🚪</div>
+        <div style="font-size:1.05rem;font-weight:800;color:#fff;margin-bottom:.5rem;">Quitter ${TRIP.name} ?</div>
+        <div style="font-size:.8rem;color:#94a3b8;line-height:1.5;">Tu ne verras plus ce dashboard ni les messages du crew. Tu pourras être réinvité par un membre via un lien de partage.</div>
+      </div>
+      <div style="padding:0 1.4rem 1.4rem;display:flex;gap:.6rem;">
+        <button onclick="document.getElementById('leave-crew-modal').remove()" style="flex:1;background:rgba(30,41,59,.65);border:1px solid rgba(71,85,105,.4);color:#94a3b8;font-weight:700;font-size:.82rem;padding:.7rem;border-radius:12px;cursor:pointer;transition:all .15s;" onmouseenter="this.style.background='rgba(30,41,59,.9)'" onmouseleave="this.style.background='rgba(30,41,59,.65)'">Annuler</button>
+        <button onclick="confirmLeaveCrew()" style="flex:1;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-weight:800;font-size:.82rem;padding:.7rem;border-radius:12px;border:none;cursor:pointer;transition:opacity .15s;" onmouseenter="this.style.opacity='.85'" onmouseleave="this.style.opacity='1'"><i class="fa-solid fa-right-from-bracket"></i> Quitter</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function confirmLeaveCrew() {
+  const tripId = TRIP.id;
+  // Journalise le départ avant de partir
+  if (typeof dashAddLog === 'function') dashAddLog('🚪 Départ', (localStorage.getItem('snm_pseudo')||'RiderDu74') + ' a quitté le crew');
+  // Retire le crew de la liste des dashboards
+  let dashboards = JSON.parse(localStorage.getItem('snm_dashboards') || '[]');
+  dashboards = dashboards.filter(d => d.id !== tripId);
+  localStorage.setItem('snm_dashboards', JSON.stringify(dashboards));
+  localStorage.removeItem('snm_active_trip_id');
+  showToast('🚪 Tu as quitté ' + TRIP.name);
+  setTimeout(() => { window.location.href = 'accueil.html'; }, 1100);
+}
+
+document.addEventListener('keydown', e => { if(e.key==='Escape'){closeProfile();closePayModal();document.getElementById('photos-modal').classList.remove('open');}});
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

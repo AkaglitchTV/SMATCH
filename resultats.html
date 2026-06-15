@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smatch — SnowMatch & SunMatch — Tes Matchs 🔥</title>
+<meta name="description" content="Découvre les riders et aventuriers les plus compatibles avec ton profil, avec un score de compatibilité expliqué.">
+<meta name="theme-color" content="#020617">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smatch">
+<meta property="og:title" content="Mes matchs — Smatch">
+<meta property="og:description" content="Découvre les riders et aventuriers les plus compatibles avec ton profil, avec un score de compatibilité expliqué.">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mes matchs — Smatch">
+<meta name="twitter:description" content="Découvre les riders et aventuriers les plus compatibles avec ton profil, avec un score de compatibilité expliqué.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏔️</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="trip_data.js"></script>
+<script src="store.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body{background:#020617;color:#f1f5f9;font-family:ui-sans-serif,system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+#bg-layer{position:fixed;inset:0;z-index:0;transition:background .9s ease;}
+
+/* Animations */
+@keyframes slide-in {from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes radar-anim {0%{transform:scale(.45);opacity:.85}100%{transform:scale(2);opacity:0}}
+@keyframes modal-pop  {from{opacity:0;transform:scale(.92) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes cmt-pop    {from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toast-in   {from{opacity:0;transform:translateY(16px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toast-out  {from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(8px) scale(.97)}}
+@keyframes merge-sent {0%{transform:scale(1)}30%{transform:scale(1.08)}60%{transform:scale(.97)}100%{transform:scale(1)}}
+
+.card-appear{animation:slide-in .42s ease both;}
+.card-appear:nth-child(1){animation-delay:.04s}.card-appear:nth-child(2){animation-delay:.1s}
+.card-appear:nth-child(3){animation-delay:.17s}.card-appear:nth-child(4){animation-delay:.24s}
+.card-appear:nth-child(5){animation-delay:.31s}.card-appear:nth-child(6){animation-delay:.38s}
+
+.radar-ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(34,211,238,.55);animation:radar-anim 2.1s ease-out infinite;}
+.radar-ring.amber{border-color:rgba(251,191,36,.55);}
+.radar-ring:nth-child(2){animation-delay:.7s}.radar-ring:nth-child(3){animation-delay:1.4s}
+
+.match-card{transition:border-color .22s,box-shadow .22s,transform .22s;cursor:default;}
+.match-card:hover{transform:translateY(-3px);box-shadow:0 20px 40px rgba(0,0,0,.4);}
+.compat-bar{transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+
+/* Tags */
+.tag     {display:inline-flex;align-items:center;gap:4px;background:rgba(34,211,238,.09);border:1px solid rgba(34,211,238,.22);color:#67e8f9;font-size:.67rem;font-weight:600;padding:2px 9px;border-radius:9999px;}
+.tag-ete {background:rgba(251,191,36,.09);border-color:rgba(251,191,36,.22);color:#fcd34d;}
+.tag-green{background:rgba(52,211,153,.09);border-color:rgba(52,211,153,.22);color:#34d399;}
+
+/* Filter pills */
+.fp{font-size:.7rem;font-weight:700;padding:.35rem .9rem;border-radius:9999px;cursor:pointer;border:1px solid rgba(71,85,105,.4);background:rgba(15,23,42,.5);color:#64748b;transition:all .18s ease;}
+.fp:hover{color:#94a3b8;border-color:rgba(71,85,105,.7);}
+.fp.on-h{background:rgba(34,211,238,.14);border-color:rgba(34,211,238,.4);color:#22d3ee;}
+.fp.on-e{background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.4);color:#fbbf24;}
+
+/* Merge button states */
+.btn-merge-idle   {background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#020617;}
+.btn-merge-sent   {background:rgba(52,211,153,.2);border:1px solid rgba(52,211,153,.5);color:#34d399;}
+.btn-merge-idle-e {background:linear-gradient(135deg,#fbbf24,#f97316);color:#020617;}
+.btn-merge-sent-e {background:rgba(52,211,153,.2);border:1px solid rgba(52,211,153,.5);color:#34d399;}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;
+  display:none;align-items:center;gap:.6rem;
+  background:rgba(10,15,30,.97);border-radius:16px;padding:.8rem 1.4rem;
+  font-size:.82rem;font-weight:700;box-shadow:0 20px 50px rgba(0,0,0,.6);
+  backdrop-filter:blur(16px);}
+#toast.show{display:flex;animation:toast-in .3s ease both;}
+#toast.hide{animation:toast-out .3s ease both;}
+
+/* Modal */
+#rpm{display:none;position:fixed;inset:0;z-index:9000;background:rgba(2,6,23,.82);backdrop-filter:blur(7px);align-items:center;justify-content:center;}
+#rpm.open{display:flex;}
+#rpm-inner{background:rgba(10,15,30,.97);border:1px solid rgba(34,211,238,.22);border-radius:24px;width:94%;max-width:480px;max-height:92vh;overflow-y:auto;box-shadow:0 40px 80px rgba(0,0,0,.7);animation:modal-pop .28s ease both;scrollbar-width:thin;scrollbar-color:rgba(71,85,105,.4) transparent;}
+
+.star-r{font-size:1.4rem;cursor:pointer;color:#334155;transition:transform .15s,filter .15s;}
+.star-r.lit{color:#22d3ee;filter:drop-shadow(0 0 4px rgba(34,211,238,.6));}
+.star-r.amber-lit{color:#fbbf24;filter:drop-shadow(0 0 4px rgba(251,191,36,.6));}
+.star-r:hover{transform:scale(1.25);}
+.cmt-ta{width:100%;background:rgba(10,15,30,.6);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:10px 14px;color:#e2e8f0;font-size:.78rem;resize:none;outline:none;transition:border-color .2s;font-family:inherit;}
+.cmt-ta:focus{border-color:rgba(34,211,238,.5);}
+.cmt-ta::placeholder{color:#475569;}
+.cmt-card{animation:cmt-pop .3s ease both;}
+
+.stat-cell{background:rgba(5,8,20,.6);border-radius:12px;padding:.75rem;text-align:center;}
+
+/* Profile trigger hover */
+.profile-trigger { position:relative; }
+.profile-tooltip { z-index:50; }
+.profile-trigger .profile-tooltip { backdrop-filter:blur(8px); }
+.profile-trigger:hover .w-12 { box-shadow: 0 0 0 2px rgba(34,211,238,.4); }
+
+button,a{transition:filter .17s ease,transform .17s ease;}
+button:active,a:active{transform:scale(.97)!important;filter:brightness(.92)!important;}
+</style>
+<link rel="stylesheet" href="mobile.css">
+</head>
+<body data-page="matchs">
+
+<div id="bg-layer">
+  <div style="position:absolute;inset:0;" id="bg-glow"></div>
+  <svg id="svg-hiver" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:0;left:0;width:100%;height:65%;">
+    <path d="M0,320 L0,220 L120,140 L200,180 L320,80 L420,130 L520,40 L620,100 L720,20 L820,90 L920,50 L1020,120 L1120,60 L1220,110 L1320,70 L1440,130 L1440,320 Z" fill="rgba(10,20,40,.7)"/>
+    <path d="M0,320 L0,260 L100,200 L200,230 L340,160 L440,200 L560,130 L660,170 L760,110 L860,150 L960,120 L1060,160 L1160,130 L1280,170 L1380,140 L1440,170 L1440,320 Z" fill="rgba(8,16,32,.87)"/>
+    <path d="M520,40 L480,80 L560,80 Z" fill="rgba(220,240,255,.17)"/><path d="M720,20 L680,65 L760,65 Z" fill="rgba(220,240,255,.17)"/>
+  </svg>
+  <svg id="svg-ete" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:0;left:0;width:100%;height:65%;display:none;">
+    <path d="M0,320 L0,270 L100,255 L250,268 L400,242 L580,260 L740,234 L920,255 L1080,228 L1260,248 L1440,232 L1440,320 Z" fill="rgba(25,10,0,.75)"/>
+    <circle cx="1280" cy="65" r="52" fill="rgba(251,191,36,.07)"/><circle cx="1280" cy="65" r="30" fill="rgba(251,191,36,.16)"/><circle cx="1280" cy="65" r="14" fill="rgba(251,191,36,.3)"/>
+  </svg>
+</div>
+
+<div id="nav-mount"></div>
+
+<!-- TOAST -->
+<div id="toast">
+  <span id="toast-icon">⚡</span>
+  <span id="toast-msg">Demande de merge envoyée !</span>
+</div>
+
+<main class="relative z-10 flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 py-8" style="overflow-x:hidden;">
+
+  <!-- Radar header -->
+  <div class="flex flex-col md:flex-row items-center gap-6 mb-8">
+    <div class="relative w-20 h-20 flex-shrink-0">
+      <div class="radar-ring" id="r1"></div><div class="radar-ring" id="r2"></div><div class="radar-ring" id="r3"></div>
+      <div id="radar-av" class="w-20 h-20 rounded-full flex items-center justify-center font-black text-2xl relative z-10 bg-gradient-to-br from-cyan-400 to-blue-600 text-slate-950">R</div>
+    </div>
+    <div class="flex-grow text-center md:text-left">
+      <div class="flex items-center justify-center md:justify-start gap-2 mb-2 flex-wrap">
+        <span id="act-pill" class="text-xs font-bold px-3 py-1 rounded-full border" style="background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.3);color:#22d3ee;">🏂 Snowboard</span>
+        <span id="dispo-pill" class="text-xs font-semibold px-3 py-1 rounded-full border border-slate-700 bg-slate-900/60 text-slate-400">📅 Semaine+</span>
+        <span id="lieu-pill" class="text-xs text-slate-500"></span>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-extrabold text-white" id="match-title">Tes meilleurs matchs ⚡</h2>
+      <p class="text-slate-400 text-sm mt-1" id="match-sub">Profils sélectionnés selon tes préférences et dispo.</p>
+    </div>
+    <div class="flex gap-5 flex-shrink-0 text-center">
+      <div><div class="text-2xl font-black" id="stat-nb" style="color:#22d3ee;">6</div><div class="text-xs text-slate-500">Matchs</div></div>
+      <div class="w-px bg-slate-800"></div>
+      <div><div class="text-2xl font-black" id="stat-top" style="color:#22d3ee;">97%</div><div class="text-xs text-slate-500">Top score</div></div>
+      <div class="w-px bg-slate-800"></div>
+      <div><div class="text-2xl font-black text-emerald-400" id="stat-sent">0</div><div class="text-xs text-slate-500">Envoyés</div></div>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="flex gap-2 flex-wrap mb-6" id="filter-bar">
+    <button class="fp on-h" data-f="all"      onclick="applyFilter('all')">Tous (<span id="count-all">6</span>)</button>
+    <button class="fp"      data-f="level"    onclick="applyFilter('level')">🎯 Même niveau (<span id="count-level">0</span>)</button>
+    <button class="fp"      data-f="dispo"    onclick="applyFilter('dispo')">📅 Mêmes dispo (<span id="count-dispo">0</span>)</button>
+    <button class="fp"      data-f="intense"  onclick="applyFilter('intense')">⚡ Même intensité (<span id="count-intense">0</span>)</button>
+    <button class="fp"      data-f="budget"   onclick="applyFilter('budget')">💸 Même budget (<span id="count-budget">0</span>)</button>
+  </div>
+
+  <!-- Grille -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="match-grid"></div>
+
+  <!-- Message si vide -->
+  <div id="empty-msg" class="hidden text-center py-14">
+    <div class="text-5xl mb-4">🔍</div>
+    <div class="text-lg font-bold text-white mb-1">Aucun match avec ce filtre</div>
+    <div class="text-sm text-slate-400">Essaie un autre filtre ou <a href="recherche.html" class="text-cyan-400 hover:underline">modifie ta recherche</a></div>
+  </div>
+
+  <!-- Merge groupe -->
+  <div class="mt-8 rounded-2xl p-6 text-center" style="background:rgba(10,15,30,.75);border:1px solid rgba(30,41,59,.6);backdrop-filter:blur(12px);">
+    <p class="text-slate-400 text-sm mb-4">Tu veux merger plusieurs personnes en même temps ? 👥</p>
+    <button onclick="mergeAll()" id="btn-merge-all" class="inline-flex items-center gap-3 font-bold px-8 py-3.5 rounded-xl text-slate-950 transition-all shadow-lg btn-merge-idle">
+      <i class="fa-solid fa-bolt"></i> Inviter tout le monde
+    </button>
+  </div>
+</main>
+
+<footer class="relative z-10 text-center py-5 text-xs text-slate-600 border-t border-slate-900">&copy; 2026 Smatch — SnowMatch & SunMatch</footer>
+
+<!-- ═══ MODAL PROFIL ═══ -->
+<div id="rpm" onclick="if(event.target===this)closeRPM()">
+<div id="rpm-inner">
+
+  <!-- Header -->
+  <div class="p-6 pb-4 border-b border-slate-800 flex items-start gap-4">
+    <div id="rpm-av" class="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl flex-shrink-0 relative">
+      <div id="rpm-av-online" class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-slate-900"></div>
+    </div>
+    <div class="flex-grow">
+      <div id="rpm-name" class="text-xl font-extrabold text-white mb-0.5"></div>
+      <div id="rpm-sub"  class="text-xs text-slate-400 mb-2"></div>
+      <div id="rpm-tags" class="flex gap-1.5 flex-wrap"></div>
+    </div>
+    <button onclick="closeRPM()" class="text-slate-500 hover:text-white text-lg flex-shrink-0 p-1" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+
+  <div class="p-6 space-y-5">
+
+    <!-- Stats grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="rpm-stats"></div>
+
+    <!-- Bio -->
+    <div id="rpm-bio" class="text-slate-300 text-sm leading-relaxed p-4 rounded-xl border border-slate-800 bg-slate-950/40"></div>
+
+    <!-- Score compat visuel -->
+    <div id="rpm-compat-bar-wrap">
+      <div class="flex justify-between items-center mb-1.5">
+        <span class="text-xs text-slate-400 font-semibold">Compatibilité globale</span>
+        <span id="rpm-compat-pct" class="text-sm font-black text-cyan-400"></span>
+      </div>
+      <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+        <div id="rpm-compat-bar" class="h-full rounded-full compat-bar" style="width:0%;background:linear-gradient(to right,#22d3ee,#3b82f6);"></div>
+      </div>
+      <div class="grid grid-cols-4 gap-1 mt-2" id="rpm-compat-details"></div>
+      <div id="rpm-compat-reasons" class="mt-3 space-y-1.5"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3">
+    <a id="rpm-tel" href="#" class="flex-1 flex items-center justify-center gap-2 text-emerald-400 text-xs font-bold py-3 rounded-xl transition-all" style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);text-decoration:none;" onclick="if(this.href==='#')return false;">
+        <i class="fa-solid fa-phone"></i> Appeler
+    </a>
+      <button id="rpm-merge-btn" onclick="sendMerge(null, true)" class="flex-1 flex items-center justify-center gap-2 text-xs font-bold py-3 rounded-xl transition-all text-slate-950 btn-merge-idle">
+        <i class="fa-solid fa-bolt"></i> Demande de merge
+      </button>
+    </div>
+
+    <!-- Avis -->
+    <div class="border-t border-slate-800 pt-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-semibold text-white">Avis de la communauté</span>
+        <span id="rpm-score" class="text-sm font-black text-cyan-400"></span>
+      </div>
+
+      <!-- Étoiles -->
+      <div class="flex items-center gap-1 mb-4">
+        <div id="rpm-stars" class="flex gap-0.5">
+          <span class="star-r" data-v="1" onclick="rRate(1)">★</span><span class="star-r" data-v="2" onclick="rRate(2)">★</span><span class="star-r" data-v="3" onclick="rRate(3)">★</span><span class="star-r" data-v="4" onclick="rRate(4)">★</span><span class="star-r" data-v="5" onclick="rRate(5)">★</span>
+        </div>
+        <span id="rpm-star-lbl" class="text-xs text-slate-500 ml-2"></span>
+      </div>
+
+      <!-- Commentaires existants -->
+      <div id="rpm-cmts" class="space-y-3 mb-4"></div>
+
+      <!-- Ajouter un commentaire -->
+      <div>
+        <textarea id="rpm-cmt" class="cmt-ta" rows="2" placeholder="Partage ton expérience avec ce rider…"></textarea>
+        <button onclick="rPublish()" id="rpm-pub-btn" class="mt-2 w-full flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl text-sm text-slate-950 transition-all btn-merge-idle">
+          <i class="fa-solid fa-paper-plane text-xs"></i> Publier mon avis
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONTEXT  (saved by recherche.html)
+// ═══════════════════════════════════════════════════════════════════════════
+const MODE      = localStorage.getItem('snm_mode')      || 'hiver';
+const ACT_ID    = localStorage.getItem('snm_activite')  || 'snowboard';
+const ACT_NAME  = localStorage.getItem('snm_act_name')  || 'Snowboard';
+const ACT_ICON  = localStorage.getItem('snm_act_icon')  || '🏂';
+const LIEU      = localStorage.getItem('snm_lieu')      || 'Chamonix';
+const DISPO_T   = localStorage.getItem('snm_dispo_type')|| 'week';
+const isEte     = MODE === 'ete';
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PROFILES DATA  — riche, réaliste, filtrable
+// ═══════════════════════════════════════════════════════════════════════════
+const PROFILES_HIVER = [
+  {
+    key:'LC', name:'LucasCarve',   age:27, city:'Annecy',    sport:'Snowboard', icon:'🏂',
+    level:'avance', intensity:'sportif', budget:'medium',
+    dispo_type:'week', dispo:'14–21 fév.',
+    color:'from-cyan-400 to-blue-600', tc:'text-slate-950', online:true,
+    compat:97, compat_d:{niveau:98,dispo:95,intensite:96,budget:98},
+    phone:'+33 6 11 22 33 44',
+    bio:'Snowboarder confirmé depuis 12 ans. Je recherche un crew pour dévaler les noires de Chamonix et taper quelques tricks au snowpark. Raclette-addict notoire 🧀',
+    kiffs:['🏂 Snowpark','🌨️ Poudreuse','🍻 Après-ski','📸 Contenu'],
+    rating:4.9, rCnt:23,
+    comments:[
+      {a:'SophieP',   t:'Meilleur rider du trip, incroyable en park !',       s:5, d:'3 jan.'},
+      {a:'ThomasO',   t:'Toujours partant pour les premières traces.',         s:5, d:'12 déc.'},
+    ]
+  },
+  {
+    key:'SP', name:'SophiePow',    age:25, city:'Lyon',      sport:'Ski',       icon:'⛷️',
+    level:'expert', intensity:'sportif', budget:'medium',
+    dispo_type:'week', dispo:'12–22 fév.',
+    color:'from-violet-500 to-purple-700', tc:'text-white', online:true,
+    compat:91, compat_d:{niveau:88,dispo:97,intensite:90,budget:89},
+    phone:'+33 6 22 33 44 55',
+    bio:'Skieuse experte, ex-compétitrice régionale. J\'adore le hors-piste et les couloirs. Je cherche un crew qui pousse fort mais sait aussi se détendre au spa après.',
+    kiffs:['🌨️ Hors-piste','🧖 Spa','🍷 Vin chaud','📸 Photos montagne'],
+    rating:4.8, rCnt:17,
+    comments:[
+      {a:'LucasC',    t:'Elle descend les couloirs comme une pro.',            s:5, d:'5 jan.'},
+      {a:'MaevaM',    t:'Super équipière, très safe en hors-piste.',           s:5, d:'18 déc.'},
+    ]
+  },
+  {
+    key:'TE', name:'ThomasExt',    age:31, city:'Grenoble',  sport:'Freeride',  icon:'🌨️',
+    level:'expert', intensity:'extreme', budget:'luxe',
+    dispo_type:'week', dispo:'15–23 fév.',
+    color:'from-orange-400 to-red-600', tc:'text-white', online:false,
+    compat:84, compat_d:{niveau:90,dispo:82,intensite:92,budget:72},
+    phone:'+33 6 33 44 55 66',
+    bio:'Freerider et guide de haute montagne. Je pratique le ski extrême depuis 15 ans. Je cherche des partenaires à l\'aise hors-piste pour des sorties engagées.',
+    kiffs:['🏔️ Haute montagne','📡 Météo obsession','🛟 DVA / sécu','⚡ Adrénaline'],
+    rating:4.7, rCnt:11,
+    comments:[
+      {a:'SophieP',   t:'Connaissance du terrain imbattable, très sécurisant.', s:5, d:'8 jan.'},
+    ]
+  },
+  {
+    key:'MM', name:'MaevaMount',   age:28, city:'ClermontFd',sport:'Raquettes', icon:'🥾',
+    level:'intermediaire', intensity:'chill', budget:'eco',
+    dispo_type:'weekend', dispo:'15–16 fév.',
+    color:'from-emerald-400 to-teal-600', tc:'text-white', online:true,
+    compat:76, compat_d:{niveau:72,dispo:68,intensite:65,budget:98},
+    phone:'+33 6 44 55 66 77',
+    bio:'Montagnarde zen. Je cherche des crews pour des sorties raquettes et rando hiver, loin du tumulte des pistes. Bonne bouffe et belle ambiance avant tout !',
+    kiffs:['🌲 Forêts enneigées','🍵 Thé chaud','📸 Nature','🧘 Silence montagne'],
+    rating:4.6, rCnt:8,
+    comments:[
+      {a:'LucasC',    t:'Connaît des coins magiques en forêt.',                s:5, d:'2 jan.'},
+    ]
+  },
+  {
+    key:'NB', name:'NicoBlast',    age:23, city:'Chambéry',  sport:'Snowboard', icon:'🏂',
+    level:'intermediaire', intensity:'active', budget:'eco',
+    dispo_type:'week', dispo:'13–20 fév.',
+    color:'from-sky-400 to-indigo-600', tc:'text-white', online:false,
+    compat:71, compat_d:{niveau:70,dispo:78,intensite:75,budget:60},
+    phone:'+33 6 55 66 77 88',
+    bio:'Snowboarder en pleine progression. Je cherche des riders pour m\'aider à passer au niveau supérieur. Fun, bonne humeur et après-ski assurés !',
+    kiffs:['🏂 Progression','🍻 Après-ski','🎶 Musique','😂 Good vibes'],
+    rating:4.4, rCnt:6,
+    comments:[
+      {a:'SophieP',   t:'Trop attachant, gros potentiel !',                    s:4, d:'15 déc.'},
+    ]
+  },
+  {
+    key:'CA', name:'ClaraAlpin',   age:30, city:'Courchevel',sport:'Ski alpin', icon:'⛷️',
+    level:'avance', intensity:'active', budget:'luxe',
+    dispo_type:'week', dispo:'10–17 fév.',
+    color:'from-rose-400 to-pink-600', tc:'text-white', online:true,
+    compat:65, compat_d:{niveau:85,dispo:55,intensite:72,budget:48},
+    phone:'+33 6 66 77 88 99',
+    bio:'Skieuse avancée, amatrice de grands domaines et de beaux chalets. Je mets la barre haut côté logement mais je donne tout sur les pistes.',
+    kiffs:['🏔️ Grands domaines','✨ Chalet haut de gamme','🍾 Gastronomie','🎿 Technique'],
+    rating:4.5, rCnt:9,
+    comments:[
+      {a:'ThomasE',   t:'Excellente skieuse, organisation impeccable.',        s:5, d:'20 déc.'},
+    ]
+  },
+];
+
+const PROFILES_ETE = [
+  {
+    key:'ZW', name:'ZoeWave',      age:24, city:'Hossegor',  sport:'Surf',      icon:'🏄',
+    level:'avance', intensity:'active', budget:'medium',
+    dispo_type:'week', dispo:'5–12 août',
+    color:'from-amber-400 to-orange-500', tc:'text-slate-950', online:true,
+    compat:96, compat_d:{niveau:95,dispo:98,intensite:94,budget:97},
+    phone:'+33 7 11 22 33 44',
+    bio:'Surfeuse côtière depuis l\'enfance. Je connais chaque spot d\'Hossegor par cœur. Je cherche un crew pour early sessions au lever du soleil et apéros sunset.',
+    kiffs:['🌊 Early session','🍹 Sunset apéro','🏖️ Beach life','📸 Contenu surf'],
+    rating:4.9, rCnt:19, comments:[{a:'KevA',t:'La meilleure pour connaître les spots !',s:5,d:'10 juil.'}]
+  },
+  {
+    key:'KA', name:'KevAdvent',    age:29, city:'Bordeaux',  sport:'Gravel',    icon:'🚴',
+    level:'avance', intensity:'sportif', budget:'medium',
+    dispo_type:'week', dispo:'3–10 août',
+    color:'from-lime-400 to-green-600', tc:'text-slate-950', online:true,
+    compat:88, compat_d:{niveau:82,dispo:90,intensite:92,budget:87},
+    phone:'+33 7 22 33 44 55',
+    bio:'Gravel & bikepacking enthusiast. J\'ai traversé les Pyrénées 3 fois et j\'attaque les Alpes cet été. Je cherche des crews polyvalents : vélo le matin, surf l\'après-midi.',
+    kiffs:['🚴 Gravel aventure','☕ Café étape','⛺ Bivouac','🏄 Surf après'],
+    rating:4.7, rCnt:12, comments:[{a:'ZoeW',t:'Toujours partant, grande énergie !',s:5,d:'5 juil.'}]
+  },
+  {
+    key:'NK', name:'NatachaKite',  age:26, city:'Palavas',   sport:'Kitesurf',  icon:'🪁',
+    level:'avance', intensity:'extreme', budget:'medium',
+    dispo_type:'week', dispo:'7–14 août',
+    color:'from-sky-400 to-cyan-600', tc:'text-slate-950', online:false,
+    compat:81, compat_d:{niveau:80,dispo:84,intensite:96,budget:63},
+    phone:'+33 7 33 44 55 66',
+    bio:'Kitesurfeuse confirmée, je chasse les conditions partout en Europe. Été = kitesurf + trail + apéros en terrasse. Je cherche des adrénaline addicts !',
+    kiffs:['💨 Chasse le vent','🏃 Trail côtier','⚡ Adrénaline','🍹 Terrasse'],
+    rating:4.6, rCnt:8, comments:[{a:'KevA',t:'Niveau et maîtrise impressionnants !',s:5,d:'2 juil.'}]
+  },
+  {
+    key:'ES', name:'ElinaSea',     age:23, city:'Nice',      sport:'Plongée',   icon:'🤿',
+    level:'intermediaire', intensity:'chill', budget:'eco',
+    dispo_type:'week', dispo:'4–11 août',
+    color:'from-teal-400 to-emerald-600', tc:'text-slate-950', online:true,
+    compat:74, compat_d:{niveau:68,dispo:82,intensite:58,budget:88},
+    phone:'+33 7 44 55 66 77',
+    bio:'Amoureuse de la mer et des fonds sous-marins. Plongée, snorkeling, voile légère — je cherche un crew qui prend soin de l\'océan et profite lentement.',
+    kiffs:['🐠 Fonds marins','🌅 Sunrise','🤿 Snorkeling','⛵ Voile légère'],
+    rating:4.5, rCnt:6, comments:[{a:'ZoeW',t:'Connaît les meilleures criques !',s:5,d:'8 juil.'}]
+  },
+  {
+    key:'BV', name:'BaptisteVibe', age:32, city:'Annecy',    sport:'Beach-volley',icon:'🏐',
+    level:'intermediaire', intensity:'active', budget:'medium',
+    dispo_type:'weekend', dispo:'9–10 août',
+    color:'from-rose-400 to-pink-600', tc:'text-white', online:true,
+    compat:68, compat_d:{niveau:65,dispo:55,intensite:70,budget:82},
+    phone:'+33 7 55 66 77 88',
+    bio:'Beach-volley, randonnée, festival — je cherche la bonne ambiance avant tout. Sportif mais détente garantie. Roi du barbecue.',
+    kiffs:['🏐 Beach-volley','🔥 Barbecue','🎵 Festival','😄 Good vibes'],
+    rating:4.4, rCnt:7, comments:[{a:'ZoeW',t:'Meilleure ambiance du trip garantie.',s:5,d:'15 juil.'}]
+  },
+  {
+    key:'RC', name:'RachidCity',   age:35, city:'Paris',     sport:'Running',   icon:'🏃',
+    level:'avance', intensity:'sportif', budget:'luxe',
+    dispo_type:'week', dispo:'2–9 août',
+    color:'from-indigo-400 to-violet-600', tc:'text-white', online:false,
+    compat:61, compat_d:{niveau:75,dispo:48,intensite:80,budget:42},
+    phone:'+33 7 66 77 88 99',
+    bio:'Trail runner & city explorer. Je mixe runs matinaux, visites culturelles et bonnes tables. Je cherche des compagnons qui savent tout faire bien.',
+    kiffs:['🏃 Trail urbain','🍽️ Gastronomie','🏛️ Culture','☕ Café specialty'],
+    rating:4.3, rCnt:5, comments:[{a:'KevA',t:'Connaît tous les bons plans.',s:4,d:'20 juil.'}]
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const BASE_POOL = isEte ? PROFILES_ETE : PROFILES_HIVER;
+// Matchs entrants (générés par le simulateur de vie) — ajoutés en tête
+function _ageForRange(range) {
+  if (range === '18-25') return 18 + Math.floor(Math.random()*8);
+  if (range === '26-35') return 26 + Math.floor(Math.random()*10);
+  if (range === '36-45') return 36 + Math.floor(Math.random()*10);
+  if (range === '46+')   return 46 + Math.floor(Math.random()*15);
+  return 20 + Math.floor(Math.random()*15);
+}
+function _getIncomingMatches() {
+  try {
+    const inc = JSON.parse(localStorage.getItem('snm_incoming_matches') || '[]');
+    return inc.filter(m => m.mode === MODE).map(m => ({
+      key: m.key, name: m.name, icon: m.icon || (isEte?'🏄':'🏂'),
+      age: _ageForRange(localStorage.getItem('snm_age_range') || 'all'), city: m.spot || (isEte?'Hossegor':'Annecy'),
+      sport: m.sport || (isEte?'Surf':'Snowboard'), level: 'Confirmé', intensity: 'Sportif',
+      budget: 'Medium', dispo_type: 'week', dispo: m.dispo || 'Tes dates',
+      compat: m.compat || 88, compat_d: { niveau: 88, dispo: 95, intensite: 85, budget: 84 },
+      color: isEte ? 'from-amber-400 to-orange-500' : 'from-cyan-400 to-blue-600',
+      tc: 'text-slate-950', kiffs: [], bio: 'Nouveau rider qui correspond à tes critères !',
+      rating: 4.5 + Math.random()*0.4, rCnt: 3 + Math.floor(Math.random()*20), comments: [],
+      isIncoming: true,
+    }));
+  } catch (e) { return []; }
+}
+const POOL = [..._getIncomingMatches(), ...BASE_POOL];
+const ALL_DATA = {};
+[...PROFILES_HIVER,...PROFILES_ETE,...POOL].forEach(m => ALL_DATA[m.key] = m);
+
+// Tranche d'âge choisie à la recherche → filtre les résultats
+const AGE_RANGE = localStorage.getItem('snm_age_range') || 'all';
+function _ageInRange(age, range) {
+  if (!range || range === 'all') return true;
+  if (range === '46+') return age >= 46;
+  const [lo, hi] = range.split('-').map(Number);
+  return age >= lo && age <= hi;
+}
+
+let activeFilter = 'all';
+let mergedSet = new Set();    // keys of sent merge requests
+let rpmKey = null, rpmRating = 0;
+const STAR_LBLS = ['','Bof 😐','Passable 🤏','Bien 👍','Super ! 🔥','Légendaire ! 🤩'];
+
+// Simulated user prefs (normally from recherche form)
+const USER_PREFS = {
+  level:     'avance',
+  dispo_type: DISPO_T || 'week',
+  intensity:  localStorage.getItem('snm_intensity') || 'sportif',
+  budget:     localStorage.getItem('snm_budget')    || 'medium',
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  THEME
+// ═══════════════════════════════════════════════════════════════════════════
+function onSeasonChange(mode) {
+  const ete = mode === 'ete';
+  document.getElementById('bg-layer').style.background = ete
+    ? 'linear-gradient(160deg,#1a0f00 0%,#2d1800 25%,#3a2200 45%,#1a3040 60%,#0d1f30 75%,#060e1a 100%)'
+    : 'linear-gradient(160deg,#0f1f3d 0%,#0c2340 25%,#1a3a5c 45%,#2d5a7a 60%,#1e3a52 75%,#0a1628 100%)';
+  document.getElementById('bg-glow').style.background = ete
+    ? 'radial-gradient(ellipse at 75% 30%,rgba(251,191,36,.07) 0%,transparent 50%)'
+    : 'radial-gradient(ellipse at 25% 65%,rgba(96,165,250,.07) 0%,transparent 55%)';
+  document.getElementById('svg-hiver').style.display = ete ? 'none' : '';
+  document.getElementById('svg-ete').style.display   = ete ? '' : 'none';
+  const ac = ete ? '#fbbf24' : '#22d3ee';
+  document.querySelectorAll('.radar-ring').forEach(r => r.classList.toggle('amber', ete));
+  const av = document.getElementById('radar-av');
+  av.className = `w-20 h-20 rounded-full flex items-center justify-center font-black text-2xl relative z-10 ${ete?'bg-gradient-to-br from-amber-400 to-orange-500':'bg-gradient-to-br from-cyan-400 to-blue-600'} text-slate-950`;
+  ['stat-nb','stat-top'].forEach(id => document.getElementById(id).style.color = ac);
+  document.getElementById('btn-merge-all').className = `inline-flex items-center gap-3 font-bold px-8 py-3.5 rounded-xl text-slate-950 transition-all shadow-lg ${ete?'btn-merge-idle-e':'btn-merge-idle'}`;
+  document.getElementById('rpm-inner').style.borderColor = ete ? 'rgba(251,191,36,.22)' : 'rgba(34,211,238,.22)';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HEADER
+// ═══════════════════════════════════════════════════════════════════════════
+function buildHeader() {
+  const ac  = isEte ? '#fbbf24' : '#22d3ee';
+  const acBg = isEte ? 'rgba(251,191,36,.12)' : 'rgba(34,211,238,.12)';
+  const acBd = isEte ? 'rgba(251,191,36,.3)' : 'rgba(34,211,238,.3)';
+  const pill = document.getElementById('act-pill');
+  pill.textContent = `${ACT_ICON} ${ACT_NAME}`;
+  pill.style.cssText = `background:${acBg};border-color:${acBd};color:${ac};`;
+  const dispoLabels = {day:'📆 Journée',weekend:'🗓️ Week-end',week:'🏕️ Séjour',flexible:'🎲 Flexible'};
+  let dispoTxt = dispoLabels[DISPO_T] || '📅 Séjour';
+  const df = localStorage.getItem('snm_date_from'), dt = localStorage.getItem('snm_date_to');
+  if (df) {
+    const fmt = d => new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    dispoTxt += (dt && dt !== df) ? ` · ${fmt(df)}–${fmt(dt)}` : ` · ${fmt(df)}`;
+  }
+  document.getElementById('dispo-pill').textContent = dispoTxt;
+  if (LIEU) document.getElementById('lieu-pill').textContent = `📍 ${LIEU}`;
+  document.getElementById('match-title').textContent = isEte ? `Tes matchs ${ACT_ICON} ☀️` : `Tes matchs ${ACT_ICON} ⚡`;
+  const ageLbl = AGE_RANGE && AGE_RANGE !== 'all' ? ` · 🎂 ${AGE_RANGE} ans` : '';
+  const shown = POOL.filter(m => _ageInRange(m.age, AGE_RANGE)).length;
+  document.getElementById('match-sub').textContent = `${shown} profils correspondant à tes préférences — ${isEte?'trip été':'session hiver'}${ageLbl}.`;
+  document.getElementById('stat-top').textContent = POOL[0].compat + '%';
+  document.getElementById('stat-nb').textContent  = POOL.length;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FILTRES — calcul dynamique des compteurs
+// ═══════════════════════════════════════════════════════════════════════════
+function countFilter(f) {
+  if (f === 'all') return POOL.filter(m => _ageInRange(m.age, AGE_RANGE)).length;
+  return POOL.filter(m => matchFilter(m, f)).length;
+}
+function matchFilter(m, f) {
+  // Filtre transversal par tranche d'âge (toujours appliqué)
+  if (!_ageInRange(m.age, AGE_RANGE)) return false;
+  if (f === 'all')     return true;
+  if (f === 'level')   return m.level     === USER_PREFS.level;
+  if (f === 'dispo')   return m.dispo_type === USER_PREFS.dispo_type;
+  if (f === 'intense') return m.intensity  === USER_PREFS.intensity;
+  if (f === 'budget')  return m.budget     === USER_PREFS.budget;
+  return true;
+}
+function updateCounts() {
+  const filters = ['all','level','dispo','intense','budget'];
+  filters.forEach(f => {
+    const el = document.getElementById('count-'+f);
+    if (el) el.textContent = countFilter(f);
+  });
+}
+
+function applyFilter(f) {
+  activeFilter = f;
+  const actCls = isEte ? 'on-e' : 'on-h';
+  document.querySelectorAll('.fp').forEach(p => {
+    p.classList.remove('on-h','on-e');
+    if (p.dataset.f === f) p.classList.add(actCls);
+  });
+  const list = POOL.filter(m => matchFilter(m, f));
+  renderCards(list);
+  document.getElementById('empty-msg').classList.toggle('hidden', list.length > 0);
+  document.getElementById('match-grid').classList.toggle('hidden', list.length === 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER CARDS
+// ═══════════════════════════════════════════════════════════════════════════
+function compatColor(c) {
+  if (c >= 90) return isEte ? '#fbbf24' : '#22d3ee';
+  if (c >= 80) return '#a78bfa';
+  if (c >= 70) return '#fb923c';
+  return '#34d399';
+}
+
+// Convertit un texte de dispo ('14–21 fév.', '2–9 août') en dates ISO
+function parseDispoToDate(txt) {
+  const months = { 'janv':0,'fév':1,'fev':1,'mars':2,'avr':3,'mai':4,'juin':5,'juil':6,'août':7,'aout':7,'sept':8,'oct':9,'nov':10,'déc':11,'dec':11 };
+  // Année alignée sur la recherche de l'utilisateur (sinon jamais de chevauchement)
+  let year = new Date().getFullYear();
+  const userFrom = localStorage.getItem('snm_date_from');
+  if (userFrom) { const y = new Date(userFrom).getFullYear(); if (!isNaN(y)) year = y; }
+  else { year += 1; }
+  const m = txt.match(/(\d+)\s*[–\-]\s*(\d+)\s*([a-zûéèào]+)/i);
+  if (!m) return { from:'', to:'' };
+  const d1 = parseInt(m[1]), d2 = parseInt(m[2]);
+  const monKey = Object.keys(months).find(k => m[3].toLowerCase().startsWith(k));
+  if (monKey === undefined) return { from:'', to:'' };
+  const mon = months[monKey];
+  const iso = (d) => new Date(year, mon, d).toISOString().slice(0,10);
+  return { from: iso(d1), to: iso(d2) };
+}
+
+// Génère des dispos de candidats qui collent (ou varient autour) de ta recherche
+function assignDynamicDispos(list) {
+  const monthsFr = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  const userFrom = localStorage.getItem('snm_date_from');
+  const userTo   = localStorage.getItem('snm_date_to');
+  // Pas de dates choisies → on garde les dispos existantes
+  if (!userFrom) return;
+  const uF = new Date(userFrom);
+  const uT = userTo ? new Date(userTo) : new Date(uF.getTime() + 6*86400000);
+  if (isNaN(uF)) return;
+  const dur = Math.max(1, Math.round((uT - uF) / 86400000));
+
+  const fmtRange = (from, to) => {
+    const fd = from.getDate(), td = to.getDate();
+    const fm = monthsFr[from.getMonth()], tm = monthsFr[to.getMonth()];
+    if (from.getMonth() === to.getMonth()) return `${fd}–${td} ${fm}`;
+    return `${fd} ${fm} – ${td} ${tm}`;
+  };
+  const fmtMonth = (d) => `Tout ${monthsFr[d.getMonth()].replace('.','')}`;
+  const iso = d => d.toISOString().slice(0,10);
+
+  // Profils de variation : la plupart matchent, certains varient (réaliste)
+  // 0 = pile mes dates, 1 = chevauche, 2 = tout le mois, 3 = décalé proche, 4 = autre période
+  const patterns = [0,1,2,0,1,3,2,0,1,4,1,0,2];
+  list.forEach((m, i) => {
+    const p = patterns[i % patterns.length];
+    let from, to, txt;
+    if (p === 0) { // pile mes dates
+      from = new Date(uF); to = new Date(uT); txt = fmtRange(from, to);
+    } else if (p === 1) { // chevauche (décalé de ±1-3j)
+      const shift = (i % 2 ? 1 : -1) * (1 + (i % 3));
+      from = new Date(uF.getTime() + shift*86400000);
+      to = new Date(from.getTime() + (dur + (i%3))*86400000);
+      txt = fmtRange(from, to);
+    } else if (p === 2) { // tout le mois → chevauche forcément
+      from = new Date(uF.getFullYear(), uF.getMonth(), 1);
+      to = new Date(uF.getFullYear(), uF.getMonth()+1, 0);
+      txt = fmtMonth(uF);
+    } else if (p === 3) { // décalé proche (semaine suivante, même mois)
+      from = new Date(uF.getTime() + (dur+3)*86400000);
+      to = new Date(from.getTime() + dur*86400000);
+      txt = fmtRange(from, to);
+    } else { // autre période (le mois suivant) → ne matche pas, pour la variété
+      from = new Date(uF.getFullYear(), uF.getMonth()+1, Math.min(uF.getDate(), 25));
+      to = new Date(from.getTime() + dur*86400000);
+      txt = fmtRange(from, to);
+    }
+    m.dateFrom = iso(from);
+    m.dateTo = iso(to);
+    m.dispo = txt;
+  });
+}
+
+function renderCards(list) {
+  const grid = document.getElementById('match-grid');
+  // ── Dispos dynamiques : alignées sur la recherche de l'utilisateur ──
+  assignDynamicDispos(list);
+  // ── Calcul de compatibilité dynamique (moteur trip_data.js) ──────────
+  if (typeof smatchComputeCompat === 'function') {
+    list.forEach(m => {
+      // Convertit le texte de dispo (ex '14–21 fév.') en dates structurées
+      if (!m.dateFrom && m.dispo) { const d = parseDispoToDate(m.dispo); m.dateFrom = d.from; m.dateTo = d.to; }
+      const r = smatchComputeCompat(m);
+      m.compat = r.score;
+      m.compat_d = {
+        niveau: r.breakdown.niveau,
+        dispo: r.breakdown.dispo,
+        intensite: r.breakdown.intensite,
+        budget: r.breakdown.budget,
+      };
+      m._compatReasons = r.reasons;
+      m._topReason = r.topReason;
+    });
+    // Re-trie par score décroissant (le top match peut changer selon le profil)
+    list.sort((a,b) => b.compat - a.compat);
+  }
+  grid.innerHTML = list.map((m, i) => {
+    const cc    = compatColor(m.compat);
+    const isSent = mergedSet.has(m.key);
+    const border = i === 0 ? `1px solid ${cc}55` : '1px solid rgba(30,41,59,.6)';
+    const topBadge = i === 0 ? `<div class="absolute top-3 right-3 z-10"><span class="${isEte?'tag-ete':'tag'}">👑 Top match</span></div>` : '';
+    const online = m.online ? `<span class="inline-flex items-center gap-1 text-xs text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>En ligne</span>` : `<span class="text-xs text-slate-500">Hors ligne</span>`;
+
+    const tags = m.kiffs.slice(0,3).map(k => `<span class="${isEte?'tag-ete':'tag'}">${k}</span>`).join('');
+
+    // Raison principale de compatibilité (explicable)
+    const topReasonHtml = m._topReason
+      ? `<div class="flex items-center gap-1.5 mb-3 px-2.5 py-1.5 rounded-lg" style="background:${cc}11;border:1px solid ${cc}33;"><span style="font-size:.8rem;">${m._topReason.icon}</span><span class="text-xs font-semibold" style="color:${cc};">${m._topReason.txt}</span></div>`
+      : '';
+
+    // Merge button
+    const mergeBtn = isSent
+      ? `<button disabled class="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-xl btn-merge-sent cursor-default"><i class="fa-solid fa-check"></i> Demande envoyée ✓</button>`
+      : `<button onclick="sendMerge('${m.key}')" class="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-xl ${isEte?'btn-merge-idle-e':'btn-merge-idle'} transition-all"><i class="fa-solid fa-bolt"></i> Merger</button>`;
+
+    // Mini compat bars
+    const miniCompat = Object.entries(m.compat_d).map(([k,v]) => {
+      const labels = {niveau:'Niveau',dispo:'Dispo',intensite:'Intensité',budget:'Budget'};
+      return `<div class="text-center"><div class="text-xs font-bold mb-0.5" style="color:${compatColor(v)}">${v}%</div><div class="text-slate-600" style="font-size:.58rem;">${labels[k]}</div></div>`;
+    }).join('');
+
+    return `<div class="match-card card-appear relative" style="background:rgba(10,15,30,.82);border:${border};border-radius:20px;padding:1.35rem;backdrop-filter:blur(14px);display:flex;flex-direction:column;height:100%;" data-key="${m.key}">
+      ${topBadge}
+      <!-- Avatar + nom : cliquable sur avatar, nom, sous-texte -->
+      <div class="flex items-center gap-3 mb-4">
+        <div class="relative flex-shrink-0 cursor-pointer profile-trigger group" onclick="openRPM('${m.key}')" title="Voir le profil de ${m.name}">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center ${m.tc} font-black text-lg transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg" style="group-hover:box-shadow:0 0 0 3px ${cc}44;">${m.icon}</div>
+          ${m.online ? `<div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900"></div>` : ''}
+          <!-- Tooltip -->
+          <div class="profile-tooltip absolute bottom-[calc(100%+7px)] left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap px-2.5 py-1 rounded-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 scale-90 group-hover:scale-100" style="background:rgba(10,15,30,.95);border:1px solid ${cc}55;color:${cc};">👤 Voir le profil</div>
+        </div>
+        <div class="flex-grow min-w-0 cursor-pointer" onclick="openRPM('${m.key}')">
+          <div class="font-bold text-white text-sm hover:underline hover:decoration-dotted transition-all" style="text-decoration-color:${cc};">${m.name}</div>
+          <div class="text-slate-400 text-xs hover:text-slate-300 transition-colors">${m.age} ans · ${m.city}</div>
+          <div class="mt-0.5">${online}</div>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <div class="font-black text-base" style="color:${cc}">${m.compat}%</div>
+          <div class="text-xs text-slate-500">match</div>
+        </div>
+      </div>
+      <!-- Compat bar -->
+      <div class="mb-3">
+        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
+          <div class="compat-bar h-full rounded-full" style="width:${m.compat}%;background:linear-gradient(to right,${cc},${cc}88);"></div>
+        </div>
+        <div class="grid grid-cols-4 gap-1">${miniCompat}</div>
+      </div>
+      ${topReasonHtml}
+      <!-- Info sport + dispo -->
+      <div class="flex items-center gap-2 mb-3 flex-wrap">
+        <span class="${isEte?'tag-ete':'tag'}">${m.icon} ${m.sport}</span>
+        <span class="tag-green">📅 ${m.dispo}</span>
+      </div>
+      <!-- Tags kiffs -->
+      <div class="flex flex-wrap gap-1 mb-4">${tags}</div>
+      <!-- Actions (toujours en bas de la carte) -->
+      <div class="flex gap-2" style="margin-top:auto;">
+        ${mergeBtn}
+        <button onclick="openRPM('${m.key}')" class="px-3 py-2.5 rounded-xl text-xs font-semibold transition-all hover:brightness-110" style="background:rgba(15,23,42,.8);border:1px solid rgba(71,85,105,.4);color:#94a3b8;" title="Voir le profil">👤 Voir profil</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MERGE REQUEST
+// ═══════════════════════════════════════════════════════════════════════════
+function sendMerge(key, fromModal = false) {
+  const targetKey = key || rpmKey;
+  if (!targetKey || mergedSet.has(targetKey)) return;
+  mergedSet.add(targetKey);
+
+  // Update sent counter
+  document.getElementById('stat-sent').textContent = mergedSet.size;
+
+  // Refresh card button
+  const card = document.querySelector(`[data-key="${targetKey}"]`);
+  if (card) {
+    const btn = card.querySelector('button:first-of-type');
+    if (btn) {
+      btn.disabled = true;
+      btn.className = 'flex-1 flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-xl btn-merge-sent cursor-default';
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> Demande envoyée ✓';
+      btn.style.animation = 'merge-sent .4s ease';
+    }
+  }
+
+  // Update modal button if open
+  if (fromModal || (rpmKey && rpmKey === targetKey)) {
+    const mb = document.getElementById('rpm-merge-btn');
+    if (mb) {
+      mb.disabled = true;
+      mb.className = 'flex-1 flex items-center justify-center gap-2 text-xs font-bold py-3 rounded-xl transition-all btn-merge-sent cursor-default';
+      mb.innerHTML = '<i class="fa-solid fa-check"></i> Demande envoyée ✓';
+    }
+  }
+
+  const m = ALL_DATA[targetKey];
+
+  // Enregistre une vraie demande via le moteur de fusion
+  if (typeof SmatchMerge !== 'undefined' && m) {
+    // Enregistre le profil complet du candidat pour que les dashboards puissent l'afficher
+    if (typeof smatchRegisterMember === 'function') {
+      smatchRegisterMember(targetKey, {
+        name: m.name, age: m.age, city: m.city, sport: m.sport, level: m.level,
+        color: m.color, tc: m.tc, emoji: m.icon, phone: m.phone || '', bio: m.bio || '',
+        kiffs: m.kiffs || [], rating: m.rating || 4.5, rCnt: m.rCnt || 0,
+        comments: (m.comments || []).map(c => ({ author: c.a || c.author, text: c.t || c.text, stars: c.s || c.stars, date: c.d || c.date })),
+        isSelf: false,
+      });
+    }
+    SmatchMerge.send({
+      key: targetKey, name: m.name, sport: m.sport, icon: m.icon,
+      spot: m.spot || localStorage.getItem('snm_lieu') || '', compat: m.compat,
+    });
+    // Simule l'acceptation de l'autre après un délai (prototype sans backend)
+    const reqs = SmatchMerge.all();
+    const justSent = reqs.find(r => r.key === targetKey && r.status === 'pending');
+    if (justSent) {
+      setTimeout(() => {
+        const r = SmatchMerge.get(justSent.id);
+        if (r && r.status === 'pending') {
+          SmatchMerge.update(justSent.id, { status: 'accepted', time: 'À l\'instant' });
+          showToast('🤝', `${m.name} a accepté ! Ouvre "Mes Demandes" pour discuter.`, '#4ade80');
+          if (typeof navPushNotif === 'function') navPushNotif('merge', `${m.name} a accepté ta demande ⚡`, 'Discutez pour valider votre trip ensemble', 'demandes');
+          if (typeof navRender === 'function') navRender();
+        }
+      }, 2500 + Math.random() * 2000);
+    }
+  }
+
+  showToast(`⚡`, `Demande envoyée à ${m?.name || 'ce rider'} !`, '#22d3ee');
+}
+
+function mergeAll() {
+  const unsent = POOL.filter(m => !mergedSet.has(m.key));
+  if (!unsent.length) { showToast('✓', 'Tout le monde a déjà reçu ta demande !', '#34d399'); return; }
+  unsent.forEach(m => mergedSet.add(m.key));
+  document.getElementById('stat-sent').textContent = mergedSet.size;
+  document.getElementById('btn-merge-all').innerHTML = '<i class="fa-solid fa-check"></i> Demandes envoyées ✓';
+  document.getElementById('btn-merge-all').className = 'inline-flex items-center gap-3 font-bold px-8 py-3.5 rounded-xl transition-all btn-merge-sent';
+  applyFilter(activeFilter); // re-render
+  showToast('🎉', `${unsent.length} demande${unsent.length>1?'s':''} de merge envoyée${unsent.length>1?'s':''} !`, isEte?'#fbbf24':'#22d3ee');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(icon, msg, color = '#22d3ee') {
+  const t  = document.getElementById('toast');
+  const ti = document.getElementById('toast-icon');
+  const tm = document.getElementById('toast-msg');
+  t.style.borderColor = color + '55';
+  ti.textContent = icon;
+  ti.style.color = color;
+  tm.textContent = msg;
+  tm.style.color = '#e2e8f0';
+  t.classList.remove('hide');
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.classList.remove('show');
+    t.classList.add('hide');
+    setTimeout(() => { t.classList.remove('hide'); t.style.display='none'; t.style.display=''; }, 350);
+  }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MODAL PROFIL
+// ═══════════════════════════════════════════════════════════════════════════
+function openRPM(key) {
+  rpmKey = key; rpmRating = 0;
+  const m = ALL_DATA[key];
+  if (!m) return;
+  const ac = isEte ? '#fbbf24' : '#22d3ee';
+  const acBg = isEte ? 'rgba(251,191,36,.12)' : 'rgba(34,211,238,.12)';
+
+  const av = document.getElementById('rpm-av');
+  av.className = `w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl flex-shrink-0 relative bg-gradient-to-br ${m.color} ${m.tc}`;
+  av.childNodes[0]?.remove && av.childNodes[0].remove(); // clean inner text hack
+  av.innerHTML = `${m.icon}<div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-slate-900 ${m.online?'bg-emerald-400':'bg-slate-500'}"></div>`;
+
+  document.getElementById('rpm-name').textContent = m.name;
+  document.getElementById('rpm-sub').textContent  = `${m.age} ans · ${m.city} · ${m.online?'En ligne 🟢':'Hors ligne'}`;
+  document.getElementById('rpm-tags').innerHTML   = m.kiffs.map(k=>`<span class="${isEte?'tag-ete':'tag'}">${k}</span>`).join('');
+
+  document.getElementById('rpm-stats').innerHTML  = `
+    <div class="stat-cell"><div class="text-xs text-slate-500 mb-1">Sport</div><div class="font-bold text-white text-xs">${m.icon} ${m.sport}</div></div>
+    <div class="stat-cell"><div class="text-xs text-slate-500 mb-1">Dispo</div><div class="font-bold text-white text-xs">📅 ${m.dispo}</div></div>
+    <div class="stat-cell"><div class="text-xs text-slate-500 mb-1">Intensité</div><div class="font-bold text-xs" style="color:${ac}">${{chill:'😌 Chill',active:'💪 Actif',sportif:'🔥 Sportif',extreme:'⚡ Extrême'}[m.intensity]||m.intensity}</div></div>
+    <div class="stat-cell"><div class="text-xs text-slate-500 mb-1">Budget</div><div class="font-bold text-white text-xs">${{eco:'💸 Éco',medium:'😌 Confort',luxe:'✨ Luxe',gratuit:'🆓 Gratuit'}[m.budget]||m.budget}</div></div>`;
+
+  document.getElementById('rpm-bio').textContent = m.bio;
+
+  // Compat — calcul dynamique via le moteur
+  let compatResult = null;
+  if (typeof smatchComputeCompat === 'function') {
+    compatResult = smatchComputeCompat(m);
+    m.compat = compatResult.score;
+    m.compat_d = {
+      niveau: compatResult.breakdown.niveau,
+      dispo: compatResult.breakdown.dispo,
+      intensite: compatResult.breakdown.intensite,
+      budget: compatResult.breakdown.budget,
+    };
+  }
+  document.getElementById('rpm-compat-pct').textContent = m.compat + '%';
+  document.getElementById('rpm-compat-pct').style.color = compatColor(m.compat);
+  document.getElementById('rpm-compat-bar').style.width = '0%';
+  setTimeout(() => {
+    document.getElementById('rpm-compat-bar').style.width = m.compat + '%';
+    document.getElementById('rpm-compat-bar').style.background = `linear-gradient(to right,${compatColor(m.compat)},${compatColor(m.compat)}88)`;
+  }, 50);
+  const detailLabels = {niveau:'🎯 Niveau',dispo:'📅 Dispo',intensite:'⚡ Intensité',budget:'💸 Budget'};
+  document.getElementById('rpm-compat-details').innerHTML = Object.entries(m.compat_d).map(([k,v])=>`
+    <div class="stat-cell py-2">
+      <div class="text-xs font-black mb-0.5" style="color:${compatColor(v)}">${v}%</div>
+      <div class="text-slate-500" style="font-size:.6rem;">${detailLabels[k]}</div>
+    </div>`).join('');
+
+  // Raisons de compatibilité expliquées
+  const reasonsEl = document.getElementById('rpm-compat-reasons');
+  if (reasonsEl && compatResult && compatResult.reasons.length) {
+    reasonsEl.innerHTML = compatResult.reasons.slice(0,4).map(r => `
+      <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style="background:rgba(15,23,42,.6);border:1px solid rgba(30,41,59,.6);">
+        <span style="font-size:.85rem;">${r.icon}</span>
+        <span class="text-xs text-slate-300 flex-grow">${r.txt}</span>
+        <span class="text-xs font-bold" style="color:${compatColor(r.score)}">${r.score}%</span>
+      </div>`).join('');
+  } else if (reasonsEl) {
+    reasonsEl.innerHTML = '';
+  }
+
+  // Tel
+  document.getElementById('rpm-tel').href = `tel:${m.phone}`;
+  document.getElementById('rpm-tel').onclick = null;
+
+  // Merge button
+  const isSent = mergedSet.has(key);
+  const mb = document.getElementById('rpm-merge-btn');
+  mb.disabled = isSent;
+  mb.className = `flex-1 flex items-center justify-center gap-2 text-xs font-bold py-3 rounded-xl transition-all ${isSent ? 'btn-merge-sent cursor-default' : (isEte?'btn-merge-idle-e':'btn-merge-idle')}`;
+  mb.innerHTML = isSent ? '<i class="fa-solid fa-check"></i> Demande envoyée ✓' : '<i class="fa-solid fa-bolt"></i> Demande de merge';
+  mb.onclick = isSent ? null : () => sendMerge(null, true);
+
+  // Pub button
+  document.getElementById('rpm-pub-btn').className = `mt-2 w-full flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl text-sm text-slate-950 transition-all ${isEte?'btn-merge-idle-e':'btn-merge-idle'}`;
+
+  // Score
+  document.getElementById('rpm-score').textContent = `${m.rating}/5 (${m.rCnt} avis)`;
+  document.getElementById('rpm-score').style.color = ac;
+
+  rStars(0);
+  document.getElementById('rpm-cmts').innerHTML = m.comments.map(c=>`
+    <div class="cmt-card" style="background:rgba(10,15,30,.65);border:1px solid rgba(30,41,59,.7);border-radius:14px;padding:.85rem;">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-bold text-white">${c.a}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs" style="color:${ac}">${'★'.repeat(c.s)}${'☆'.repeat(5-c.s)}</span>
+          <span class="text-xs text-slate-600">${c.d}</span>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 leading-relaxed">${c.t}</p>
+    </div>`).join('');
+
+  document.getElementById('rpm-cmt').value = '';
+  document.getElementById('rpm').classList.add('open');
+}
+
+function closeRPM() { document.getElementById('rpm').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STARS
+// ═══════════════════════════════════════════════════════════════════════════
+function rStars(v) {
+  document.querySelectorAll('.star-r').forEach(s => {
+    s.classList.remove('lit','amber-lit');
+    if (parseInt(s.dataset.v) <= v) s.classList.add(isEte ? 'amber-lit' : 'lit');
+  });
+  document.getElementById('rpm-star-lbl').textContent = v > 0 ? STAR_LBLS[v] : '';
+}
+function rRate(v) {
+  rpmRating = v; rStars(v);
+  const m = ALL_DATA[rpmKey];
+  m.rCnt++; m.rating = Math.round((m.rating*(m.rCnt-1)+v)/m.rCnt*10)/10;
+  document.getElementById('rpm-score').textContent = `${m.rating}/5 (${m.rCnt} avis)`;
+}
+function rPublish() {
+  const txt = document.getElementById('rpm-cmt').value.trim();
+  if (!txt || !rpmRating) { showToast('⚠️','Note et commentaire requis !','#f87171'); return; }
+  const m = ALL_DATA[rpmKey];
+  const ac = isEte ? '#fbbf24' : '#22d3ee';
+  const d = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  m.comments.unshift({a:'RiderDu74',t:txt,s:rpmRating,d:d});
+  const el = document.createElement('div');
+  el.className = 'cmt-card';
+  el.style.cssText = `background:rgba(10,15,30,.65);border:1px solid ${ac}22;border-radius:14px;padding:.85rem;`;
+  el.innerHTML = `<div class="flex items-center justify-between mb-1.5"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-black text-xs">R</div><span class="text-xs font-bold text-white">Toi <span style="color:${ac}">(nouveau)</span></span></div><div class="flex items-center gap-2"><span class="text-xs" style="color:${ac}">${'★'.repeat(rpmRating)}</span><span class="text-xs text-slate-600">${d}</span></div></div><p class="text-xs text-slate-300 leading-relaxed">${txt}</p>`;
+  document.getElementById('rpm-cmts').insertBefore(el, document.getElementById('rpm-cmts').firstChild);
+  document.getElementById('rpm-cmt').value = ''; rpmRating = 0; rStars(0);
+  showToast('⭐','Avis publié !', ac);
+}
+
+document.querySelectorAll('.star-r').forEach(s => {
+  s.addEventListener('mouseenter', () => rStars(parseInt(s.dataset.v)));
+  s.addEventListener('mouseleave', () => rStars(rpmRating));
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  onSeasonChange(MODE);
+  buildHeader();
+  updateCounts();
+  applyFilter('all');
+});
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeRPM(); });
+</script>
+</body>
+</html>
