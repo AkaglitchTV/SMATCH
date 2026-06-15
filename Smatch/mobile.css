@@ -1,0 +1,70 @@
+/**
+ * mobile.css — Couche d'optimisation mobile pour Smatch.
+ * Additive : ne modifie que le rendu sous certaines largeurs, ne touche
+ * jamais le desktop. Cible les points faibles repérés : grilles internes
+ * trop serrées, modales à l'étroit, zones tactiles, tailles de police.
+ */
+
+/* ============ TABLETTE & EN DESSOUS (≤ 768px) ============ */
+@media (max-width: 768px) {
+  /* Grilles internes : 3 colonnes → 2 si pas déjà responsive */
+  .grid.grid-cols-3:not([class*="sm:"]):not([class*="md:"]):not([class*="lg:"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Padding des cartes un peu réduit pour gagner de la place */
+  .card { padding: 1rem !important; }
+  .form-section { padding: 1.1rem !important; }
+}
+
+/* ============ MOBILE (≤ 640px) ============ */
+@media (max-width: 640px) {
+  /* Le contenu principal respire moins sur les bords */
+  main { padding-left: .85rem !important; padding-right: .85rem !important; }
+
+  /* Grilles de stats / budget : 2 colonnes restent OK, mais 4 → 2 */
+  .grid.grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Zones tactiles : boutons d'au moins 40px de haut (doigt) */
+  button, .dispo-btn, .tab-on, .tab-off {
+    min-height: 40px;
+  }
+
+  /* Titres un peu plus compacts */
+  h1 { font-size: clamp(1.9rem, 8vw, 2.6rem) !important; line-height: 1.15 !important; }
+
+  /* Le sélecteur de villes prend toute la largeur dispo */
+  #lieu-suggest { max-width: calc(100vw - 1.5rem) !important; }
+}
+
+/* ============ MODALES sur petit écran ============ */
+@media (max-width: 560px) {
+  /* Les modales partagées (nav.js) passent quasi pleine largeur */
+  .snm-modal-box {
+    width: 95% !important;
+    max-width: 95% !important;
+    max-height: 90vh !important;
+    border-radius: 18px !important;
+  }
+  /* La messagerie occupe presque tout l'écran */
+  #snm-msg-modal .snm-modal-box {
+    height: 88vh !important;
+  }
+  /* Modales internes des dashboards (profil membre, etc.) */
+  .modal-card, [id$="-modal"] > div {
+    max-width: 95vw !important;
+  }
+}
+
+/* ============ TRÈS PETIT (≤ 380px) ============ */
+@media (max-width: 380px) {
+  /* En dernier recours, certaines grilles internes passent en 1 colonne */
+  .grid.grid-cols-2.force-stack { grid-template-columns: 1fr; }
+  /* Mini-avatars de membres : on en montre moins serrés */
+  .card { padding: .85rem !important; }
+}
+
+/* ============ Empêche tout débordement horizontal ============ */
+@media (max-width: 768px) {
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  img, video { max-width: 100%; height: auto; }
+}

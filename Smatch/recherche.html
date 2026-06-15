@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smatch — SnowMatch & SunMatch — Trouve ton crew</title>
+<meta name="description" content="Choisis ton activité, tes disponibilités et ta destination : Smatch te trouve les bons partenaires d'aventure, hiver comme été.">
+<meta name="theme-color" content="#020617">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smatch">
+<meta property="og:title" content="Lancer ma recherche de crew — Smatch">
+<meta property="og:description" content="Choisis ton activité, tes disponibilités et ta destination : Smatch te trouve les bons partenaires d'aventure, hiver comme été.">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Lancer ma recherche de crew — Smatch">
+<meta name="twitter:description" content="Choisis ton activité, tes disponibilités et ta destination : Smatch te trouve les bons partenaires d'aventure, hiver comme été.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏔️</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="trip_data.js"></script>
+<script src="store.js"></script>
+<script src="cities.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  body { background:#020617;color:#f1f5f9;font-family:ui-sans-serif,system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden; }
+  #bg-layer { position:fixed;inset:0;z-index:0;transition:background .9s ease; }
+
+  /* ── CATÉGORIE TABS ── */
+  .cat-btn { padding:.45rem 1rem;border-radius:9999px;font-size:.72rem;font-weight:700;cursor:pointer;border:1px solid transparent;transition:all .2s ease;white-space:nowrap; }
+  .cat-btn-hiver.active { background:rgba(34,211,238,.15);border-color:rgba(34,211,238,.45);color:#22d3ee; }
+  .cat-btn-hiver:not(.active) { background:rgba(15,23,42,.5);color:#64748b;border-color:rgba(71,85,105,.3); }
+  .cat-btn-hiver:not(.active):hover { color:#94a3b8;border-color:rgba(71,85,105,.6); }
+  .cat-btn-ete.active { background:rgba(251,191,36,.15);border-color:rgba(251,191,36,.45);color:#fbbf24; }
+  .cat-btn-ete:not(.active) { background:rgba(20,10,0,.5);color:#64748b;border-color:rgba(71,85,105,.3); }
+  .cat-btn-ete:not(.active):hover { color:#94a3b8;border-color:rgba(71,85,105,.6); }
+
+  /* ── ACTIVITY CARDS ── */
+  .act-card input { display:none; }
+  .act-label { display:flex;flex-direction:column;align-items:center;gap:.45rem;border:1px solid rgba(71,85,105,.35);background:rgba(15,23,42,.5);padding:.9rem .6rem;border-radius:16px;cursor:pointer;transition:all .2s ease;user-select:none;height:100%; }
+  .act-label:hover { border-color:rgba(100,116,139,.65);filter:brightness(1.1); transform:translateY(-1px); }
+  .act-label .act-icon { font-size:1.5rem;line-height:1; }
+  .act-label .act-name { font-size:.68rem;font-weight:700;color:#94a3b8;text-align:center;transition:color .2s;line-height:1.2; }
+  .act-label .act-badge { font-size:.57rem;font-weight:800;padding:.15rem .45rem;border-radius:4px;margin-top:.1rem; }
+
+  /* Hiver selected */
+  .act-card input:checked + .act-label { border-color:#22d3ee;background:rgba(34,211,238,.11);transform:scale(1.04); }
+  .act-card input:checked + .act-label .act-name { color:#22d3ee; }
+  /* Été selected */
+  .act-card-ete input:checked + .act-label { border-color:#fbbf24;background:rgba(251,191,36,.11);transform:scale(1.04); }
+  .act-card-ete input:checked + .act-label .act-name { color:#fbbf24; }
+
+  /* ── INTENSITY SLIDER ── */
+  .intensity-btn { flex:1;padding:.55rem .5rem;border-radius:12px;font-size:.7rem;font-weight:700;cursor:pointer;border:1px solid rgba(71,85,105,.35);background:rgba(15,23,42,.45);color:#64748b;transition:all .2s ease;text-align:center; }
+  .intensity-btn.active-hiver { background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.45);color:#22d3ee; }
+  .intensity-btn.active-ete   { background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.45);color:#fbbf24; }
+  .intensity-btn:hover { border-color:rgba(100,116,139,.5);color:#94a3b8; }
+
+  /* ── KIFF TAGS ── */
+  .kiff input { display:none; }
+  .kiff-lbl { display:block;border:1px solid rgba(71,85,105,.35);background:rgba(15,23,42,.4);padding:.42rem .8rem;border-radius:10px;font-size:.7rem;font-weight:600;color:#64748b;cursor:pointer;transition:all .2s;text-align:center; }
+  .kiff-lbl:hover { color:#94a3b8;border-color:rgba(71,85,105,.65); }
+  .kiff input:checked + .kiff-lbl { background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.4);color:#22d3ee; }
+  .kiff-ete input:checked + .kiff-lbl { background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24; }
+
+  /* ── RYTHME CARDS ── */
+  .rythme-card input { display:none; }
+  .rythme-lbl { display:flex;align-items:center;gap:.7rem;border:1px solid rgba(71,85,105,.35);background:rgba(15,23,42,.45);padding:.8rem .9rem;border-radius:14px;cursor:pointer;transition:all .2s; }
+  .rythme-lbl:hover { border-color:rgba(100,116,139,.55);filter:brightness(1.07); }
+  .rythme-card input:checked + .rythme-lbl { border-color:#22d3ee;background:rgba(34,211,238,.09); }
+  .rythme-card-ete input:checked + .rythme-lbl { border-color:#fbbf24;background:rgba(251,191,36,.09); }
+  .r-title { font-size:.78rem;font-weight:700;color:#e2e8f0; }
+  .r-sub   { font-size:.65rem;color:#475569; }
+
+  /* ── DISPO TYPE ── */
+  .dispo-btn { flex:1;padding:.6rem .5rem;border-radius:12px;font-size:.7rem;font-weight:700;cursor:pointer;border:1px solid rgba(71,85,105,.35);background:rgba(15,23,42,.45);color:#64748b;transition:all .2s;text-align:center; }
+  .dispo-btn.active-hiver { background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.4);color:#22d3ee; }
+  .dispo-btn.active-ete   { background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24; }
+  .dispo-btn:hover { border-color:rgba(71,85,105,.65);color:#94a3b8; }
+
+  /* ── SECTION ANIM ── */
+  @keyframes sec-in { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .sec-anim { animation:sec-in .3s ease both; }
+  @keyframes pulse-badge { 0%,100%{opacity:.7} 50%{opacity:1} }
+  .pulse-badge { animation:pulse-badge 2s ease infinite; }
+
+  /* ── MISC ── */
+  .form-section { background:rgba(10,15,30,.72);border:1px solid rgba(30,41,59,.7);border-radius:20px;padding:1.4rem;backdrop-filter:blur(16px); }
+  .form-label { font-size:.82rem;font-weight:700;color:#e2e8f0;margin-bottom:.6rem;display:block; }
+  .form-input { width:100%;background:rgba(5,8,20,.7);border:1px solid rgba(71,85,105,.5);border-radius:12px;padding:.7rem 1rem;color:#e2e8f0;font-size:.82rem;outline:none;transition:border-color .2s;font-family:inherit; }
+  .form-input:focus { border-color:rgba(34,211,238,.5); }
+  .form-input-ete:focus { border-color:rgba(251,191,36,.5); }
+  .form-input::placeholder { color:#334155; }
+  .form-select { appearance:none;cursor:pointer; }
+
+  a,button { transition:filter .17s ease,transform .17s ease; }
+  button:active,a:active { transform:scale(.97)!important;filter:brightness(.92)!important; }
+
+  /* Scrollbar horizontal pour les catégories */
+  .cat-scroll { overflow-x:auto;scrollbar-width:none; }
+  .cat-scroll::-webkit-scrollbar { display:none; }
+
+  /* Badge intensité */
+  .badge-easy    { background:rgba(52,211,153,.15);color:#34d399; }
+  .badge-medium  { background:rgba(251,191,36,.15);color:#fbbf24; }
+  .badge-intense { background:rgba(248,113,113,.15);color:#f87171; }
+  .badge-extreme { background:rgba(167,139,250,.15);color:#a78bfa; }
+  /* Rend l'icône calendrier native visible en dark mode */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.6);
+    opacity: .85;
+    cursor: pointer;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+  input[type="date"] { color-scheme: dark; }
+</style>
+<link rel="stylesheet" href="mobile.css">
+</head>
+<body data-page="matchs">
+
+<!-- BG -->
+<div id="bg-layer">
+  <div id="bg-glow" style="position:absolute;inset:0;"></div>
+  <svg id="svg-hiver" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:0;left:0;width:100%;height:65%;">
+    <path d="M0,320 L0,220 L120,140 L200,180 L320,80 L420,130 L520,40 L620,100 L720,20 L820,90 L920,50 L1020,120 L1120,60 L1220,110 L1320,70 L1440,130 L1440,320 Z" fill="rgba(10,20,40,.7)"/>
+    <path d="M0,320 L0,260 L100,200 L200,230 L340,160 L440,200 L560,130 L660,170 L760,110 L860,150 L960,120 L1060,160 L1160,130 L1280,170 L1380,140 L1440,170 L1440,320 Z" fill="rgba(8,16,32,.87)"/>
+    <path d="M520,40 L480,80 L560,80 Z" fill="rgba(220,240,255,.17)"/><path d="M720,20 L680,65 L760,65 Z" fill="rgba(220,240,255,.17)"/><path d="M1120,60 L1088,95 L1152,95 Z" fill="rgba(220,240,255,.13)"/>
+  </svg>
+  <svg id="svg-ete" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:0;left:0;width:100%;height:65%;display:none;">
+    <path d="M0,320 L0,270 L100,255 L250,268 L400,242 L580,260 L740,234 L920,255 L1080,228 L1260,248 L1440,232 L1440,320 Z" fill="rgba(25,10,0,.75)"/>
+    <circle cx="1280" cy="62" r="52" fill="rgba(251,191,36,.07)"/><circle cx="1280" cy="62" r="30" fill="rgba(251,191,36,.16)"/><circle cx="1280" cy="62" r="14" fill="rgba(251,191,36,.3)"/>
+  </svg>
+</div>
+
+<div id="nav-mount"></div>
+
+<main class="relative z-10 flex-grow w-full max-w-3xl mx-auto px-4 py-8" style="overflow-x:hidden;">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-extrabold text-white" id="page-title">Lance ta recherche ❄️</h1>
+      <p class="text-sm text-slate-400 mt-0.5" id="page-sub">Une activité, des dispo, ton crew — c'est tout.</p>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <span id="step-label" class="text-xs font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-900/80 text-slate-400">Étape 1 / 2</span>
+    </div>
+  </div>
+
+  <div class="space-y-5">
+
+    <!-- ① ACTIVITÉ -->
+    <div class="form-section" id="section-activite" style="position:relative;">
+      <div class="flex items-center justify-between mb-4">
+        <span class="form-label mb-0">Quelle activité ? 🎯</span>
+        <span id="selected-act-badge" class="hidden text-xs font-bold px-3 py-1 rounded-full" style="background:rgba(34,211,238,.15);color:#22d3ee;border:1px solid rgba(34,211,238,.3);">Aucune</span>
+      </div>
+
+      <!-- Catégories (scrollable) -->
+      <div class="cat-scroll flex gap-2 mb-4 pb-1" id="cat-tabs"></div>
+
+      <!-- Grille d'activités -->
+      <div id="act-grid" class="grid gap-2.5" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr));"></div>
+    </div>
+
+    <!-- ② DISPO — apparaît après sélection activité -->
+    <div id="section-dispo" class="form-section hidden sec-anim">
+      <span class="form-label">📅 Tes disponibilités</span>
+
+      <!-- Type de sortie -->
+      <div class="flex gap-2 mb-5 flex-wrap" id="dispo-type-btns">
+        <button class="dispo-btn" data-type="day"      onclick="setDispoType('day')">📆 Journée</button>
+        <button class="dispo-btn" data-type="weekend"  onclick="setDispoType('weekend')">🗓️ Week-end</button>
+        <button class="dispo-btn" data-type="week"     onclick="setDispoType('week')">🏕️ Semaine+</button>
+        <button class="dispo-btn" data-type="flexible" onclick="setDispoType('flexible')">🎲 Flexible</button>
+      </div>
+
+      <!-- JOURNÉE -->
+      <div id="dispo-day-block" class="hidden sec-anim space-y-4">
+        <div>
+          <label class="text-xs text-slate-400 mb-1.5 block" id="dispo-day-label">📆 Quel jour ?</label>
+          <input type="date" id="date-day" class="form-input" style="max-width:240px;">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-2 block">🕐 Tes heures de dispo</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-slate-600 mb-1 block">De</label>
+              <select id="time-from" class="form-input form-select">
+                <option value="">– Heure de début –</option>
+                <option>06:00 🌅 Lever du soleil</option>
+                <option>07:00</option><option>07:30</option>
+                <option>08:00 ⛷️ Premières traces</option>
+                <option>08:30</option><option>09:00</option>
+                <option>09:30</option><option>10:00</option>
+                <option>10:30</option><option>11:00</option>
+                <option>12:00 🍽️ Après manger</option>
+                <option>14:00</option><option>15:00</option>
+                <option>16:00</option><option>17:00</option>
+                <option>18:00 🍻 Après-ski</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-slate-600 mb-1 block">À</label>
+              <select id="time-to" class="form-input form-select">
+                <option value="">– Heure de fin –</option>
+                <option>10:00</option><option>11:00</option>
+                <option>12:00</option><option>13:00</option>
+                <option>14:00</option><option>15:00</option>
+                <option>16:00</option><option>17:00</option>
+                <option>18:00</option>
+                <option>19:00 🌙 Fin de journée</option>
+                <option>20:00</option><option>21:00</option>
+                <option>23:00 🦉 Tardif</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEEK-END -->
+      <div id="dispo-weekend-block" class="hidden sec-anim space-y-3">
+        <div>
+          <label class="text-xs text-slate-400 mb-1.5 block">📅 Quel week-end ?</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-slate-600 mb-1 block">Samedi</label>
+              <input type="date" id="date-wkd-from" class="form-input">
+            </div>
+            <div>
+              <label class="text-xs text-slate-600 mb-1 block">Dimanche</label>
+              <input type="date" id="date-wkd-to" class="form-input">
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-2 block">🕐 Tes horaires (approximatifs)</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-xs text-slate-600 mb-1 block">Début</label>
+              <select id="wkd-time-from" class="form-input form-select">
+                <option>06:00 🌅</option><option>08:00 ⛷️ Premières traces</option><option>09:00</option><option>10:00</option><option>12:00</option>
+              </select>
+            </div>
+            <div><label class="text-xs text-slate-600 mb-1 block">Fin</label>
+              <select id="wkd-time-to" class="form-input form-select">
+                <option>16:00</option><option>17:00</option><option>18:00</option><option>20:00</option><option>23:00 🦉</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEMAINE+ -->
+      <div id="dispo-week-block" class="hidden sec-anim space-y-3">
+        <div>
+          <label class="text-xs text-slate-400 mb-1.5 block">📅 Du … au …</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-xs text-slate-600 mb-1 block">Arrivée</label>
+              <input type="date" id="date-from" class="form-input"></div>
+            <div><label class="text-xs text-slate-600 mb-1 block">Départ</label>
+              <input type="date" id="date-to" class="form-input"></div>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-2 block">⏰ Heure d'arrivée approximative</label>
+          <select id="arrive-time" class="form-input form-select" style="max-width:260px;">
+            <option>Matin (avant 12h)</option>
+            <option>Début d'après-midi (12h–15h)</option>
+            <option>Fin d'après-midi (15h–18h)</option>
+            <option>Soirée (après 18h)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- FLEXIBLE -->
+      <div id="dispo-flexible-block" class="hidden sec-anim space-y-3">
+        <div>
+          <label class="text-xs text-slate-400 mb-1.5 block">📅 À partir de quand es-tu dispo ?</label>
+          <input type="date" id="date-flex-from" class="form-input" style="max-width:240px;">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-2 block">📏 Pour combien de temps ?</label>
+          <div class="flex gap-2 flex-wrap">
+            <button class="dispo-btn" data-dur="1j"   onclick="setDuration('1j')">📆 1 journée</button>
+            <button class="dispo-btn" data-dur="wkd"  onclick="setDuration('wkd')">🗓️ Un week-end</button>
+            <button class="dispo-btn" data-dur="5j"   onclick="setDuration('5j')">🏕️ ~5 jours</button>
+            <button class="dispo-btn" data-dur="1s"   onclick="setDuration('1s')">📅 1 semaine+</button>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-2 block">🕐 Tes préférences horaires</label>
+          <div class="flex gap-2 flex-wrap">
+            <button class="dispo-btn" data-tp="early" onclick="setTimePrefs('early')">🌅 Lève-tôt (6h–9h)</button>
+            <button class="dispo-btn" data-tp="day"   onclick="setTimePrefs('day')">☀️ Journée complète</button>
+            <button class="dispo-btn" data-tp="apm"   onclick="setTimePrefs('apm')">🌤️ Après-midi</button>
+            <button class="dispo-btn" data-tp="night" onclick="setTimePrefs('night')">🌙 Soirs / tardif</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lieu (commun) -->
+      <div class="mt-4 relative">
+        <label class="text-xs text-slate-400 mb-1.5 block" id="lieu-label">📍 Lieu / Spot</label>
+        <input type="text" id="inp-lieu" placeholder="Ville, région, station, spot…" class="form-input" autocomplete="off" oninput="onLieuInput()" onfocus="onLieuInput()" onkeydown="onLieuKeydown(event)">
+      </div>
+    </div>
+
+    <!-- ③ PRÉFÉRENCES — apparaît après dispo -->
+    <div id="section-prefs" class="space-y-5 hidden sec-anim">
+
+      <!-- Niveau -->
+      <div class="form-section">
+        <span class="form-label" id="niveau-label">🎯 Ton niveau</span>
+        <select id="sel-niveau" class="form-input form-select"></select>
+      </div>
+
+      <!-- Intensité -->
+      <div class="form-section">
+        <span class="form-label">⚡ Intensité souhaitée</span>
+        <div class="flex gap-2" id="intensity-btns">
+          <button class="intensity-btn" data-v="chill"   onclick="setIntensity('chill')">😌 Chill</button>
+          <button class="intensity-btn" data-v="active"  onclick="setIntensity('active')">💪 Actif</button>
+          <button class="intensity-btn" data-v="sportif" onclick="setIntensity('sportif')">🔥 Sportif</button>
+          <button class="intensity-btn" data-v="extreme" onclick="setIntensity('extreme')">⚡ Extrême</button>
+        </div>
+      </div>
+
+      <!-- Rythme -->
+      <div class="form-section">
+        <span class="form-label" id="rythme-label">🕐 Rythme</span>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="rythme-grid"></div>
+      </div>
+
+      <!-- Kiffs -->
+      <div class="form-section">
+        <span class="form-label">❤️ Tes kiffs <span class="text-slate-500 font-normal text-xs">(plusieurs)</span></span>
+        <div id="kiff-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+      </div>
+
+      <!-- Budget -->
+      <div class="form-section">
+        <span class="form-label">💸 Budget estimé</span>
+        <select id="sel-budget" class="form-input form-select">
+          <option value="gratuit">🆓 Gratuit / Minimaliste</option>
+          <option value="eco">💸 Éco (< 50€/j)</option>
+          <option value="medium" selected>😌 Confort (50–150€/j)</option>
+          <option value="luxe">✨ Luxe (150€+/j)</option>
+        </select>
+      </div>
+
+      <!-- Groupe préféré -->
+      <div class="form-section">
+        <span class="form-label">👥 Taille de crew idéale</span>
+        <div class="flex gap-2 flex-wrap">
+          <button class="dispo-btn" data-g="1"  onclick="setGroupSize('1')">👤 Solo + 1</button>
+          <button class="dispo-btn" data-g="2"  onclick="setGroupSize('2')">👥 Trio (3)</button>
+          <button class="dispo-btn" data-g="4"  onclick="setGroupSize('4')">👨‍👩‍👧‍👦 Petit groupe (4-5)</button>
+          <button class="dispo-btn" data-g="6"  onclick="setGroupSize('6')">🎉 Grande bande (6+)</button>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <button onclick="submitRecherche()" id="submit-btn"
+        class="w-full font-bold text-lg py-4 rounded-2xl transition-all shadow-xl text-slate-950"
+        style="background:linear-gradient(135deg,#06b6d4,#3b82f6);">
+        🔥 Trouver mon Crew
+      </button>
+      <p class="text-center text-xs text-slate-600 mt-2">Gratuit · Sans engagement · Résultats instantanés</p>
+
+    </div>
+  </div>
+</main>
+
+<!-- Liste de villes (hors des sections floutées pour que position:fixed marche) -->
+<div id="lieu-suggest" style="display:none;position:fixed;z-index:9000;max-height:300px;overflow-y:auto;background:rgba(8,12,24,.99);border:1px solid rgba(30,41,59,.85);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.7);scrollbar-width:thin;"></div>
+
+<footer class="relative z-10 text-center py-5 text-xs text-slate-600 border-t border-slate-900">
+  &copy; 2026 Smatch — SnowMatch & SunMatch
+</footer>
+
+<script src="nav.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+//  AUTOCOMPLÉTION VILLES (cities.js)
+// ════════════════════════════════════════════════════════════
+let _lieuActiveIdx = -1;
+let _lieuFlatItems = [];
+
+function onLieuInput() {
+  const inp = document.getElementById('inp-lieu');
+  const box = document.getElementById('lieu-suggest');
+  if (!inp || !box || typeof smatchSearchCities !== 'function') return;
+  const q = inp.value;
+  const isEte = (localStorage.getItem('snm_mode') || 'hiver') === 'ete';
+  const AC = isEte ? '#fbbf24' : '#22d3ee';
+  // Filtre par l'activité sélectionnée (terrains compatibles)
+  let terrains = null;
+  if (typeof selectedAct !== 'undefined' && selectedAct && typeof smatchActivityTerrains === 'function') {
+    terrains = smatchActivityTerrains(selectedAct.id);
+  }
+  const groups = smatchSearchCities(q, terrains, 6, 40);
+  _lieuActiveIdx = -1;
+  _lieuFlatItems = [];
+
+  if (!groups.length) {
+    const actName = (typeof selectedAct !== 'undefined' && selectedAct) ? selectedAct.name : '';
+    const msg = (terrains && q.trim())
+      ? `Aucune ville pour « ${q} » adaptée à ${actName} 🗺️`
+      : (terrains ? `Choisis d'abord une ville adaptée à ${actName}` : `Aucune ville trouvée pour « ${q} » 🗺️`);
+    box.innerHTML = `<div style="padding:.9rem 1rem;font-size:.78rem;color:#475569;">${msg}</div>`;
+    box.style.display = 'block';
+    positionLieuSuggest();
+    return;
+  }
+
+  let html = '';
+  groups.forEach(g => {
+    html += `<div style="padding:.5rem 1rem .3rem;font-size:.62rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;background:rgba(8,12,24,.99);">${g.country}</div>`;
+    g.cities.forEach(city => {
+      const idx = _lieuFlatItems.length;
+      _lieuFlatItems.push(city);
+      // surligne les lettres tapées
+      let display = city;
+      if (q.trim()) {
+        const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const pos = norm(city).indexOf(norm(q.trim()));
+        if (pos >= 0) {
+          const end = pos + q.trim().length;
+          display = city.slice(0,pos) + `<span style="color:${AC};font-weight:800;">` + city.slice(pos,end) + `</span>` + city.slice(end);
+        }
+      }
+      html += `<button type="button" data-idx="${idx}" onclick="selectLieu('${city.replace(/'/g,"\\'")}')" onmouseenter="setLieuActive(${idx})" class="lieu-item" style="width:100%;text-align:left;padding:.55rem 1rem;background:none;border:none;cursor:pointer;font-size:.82rem;color:#e2e8f0;display:flex;align-items:center;gap:.55rem;transition:background .12s;">
+        <i class="fa-solid fa-location-dot" style="color:#475569;font-size:.72rem;"></i> <span>${display}</span>
+      </button>`;
+    });
+  });
+  box.innerHTML = html;
+  box.style.display = 'block';
+  positionLieuSuggest();
+}
+
+// Positionne la liste (position:fixed) juste sous le champ, alignée à sa largeur
+function positionLieuSuggest() {
+  const inp = document.getElementById('inp-lieu');
+  const box = document.getElementById('lieu-suggest');
+  if (!inp || !box) return;
+  const r = inp.getBoundingClientRect();
+  box.style.left = r.left + 'px';
+  box.style.width = r.width + 'px';
+  box.style.top = (r.bottom + 6) + 'px';
+  // Si pas assez de place en bas, on remonte au-dessus du champ
+  const spaceBelow = window.innerHeight - r.bottom;
+  if (spaceBelow < 220) {
+    box.style.top = '';
+    box.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+  } else {
+    box.style.bottom = '';
+  }
+}
+
+function setLieuActive(idx) {
+  _lieuActiveIdx = idx;
+  document.querySelectorAll('#lieu-suggest .lieu-item').forEach(el => {
+    el.style.background = (parseInt(el.dataset.idx) === idx) ? 'rgba(30,41,59,.6)' : 'none';
+  });
+}
+
+function closeLieuSuggest() {
+  const box = document.getElementById('lieu-suggest');
+  if (box) box.style.display = 'none';
+}
+
+function selectLieu(city) {
+  const inp = document.getElementById('inp-lieu');
+  if (inp) inp.value = city;
+  closeLieuSuggest();
+}
+
+function onLieuKeydown(e) {
+  const box = document.getElementById('lieu-suggest');
+  if (!box || box.style.display === 'none') return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); setLieuActive(Math.min(_lieuActiveIdx+1, _lieuFlatItems.length-1)); _scrollLieuActive(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setLieuActive(Math.max(_lieuActiveIdx-1, 0)); _scrollLieuActive(); }
+  else if (e.key === 'Enter') {
+    if (_lieuActiveIdx >= 0 && _lieuFlatItems[_lieuActiveIdx]) { e.preventDefault(); selectLieu(_lieuFlatItems[_lieuActiveIdx]); }
+  } else if (e.key === 'Escape') { closeLieuSuggest(); }
+}
+function _scrollLieuActive() {
+  const el = document.querySelector(`#lieu-suggest .lieu-item[data-idx="${_lieuActiveIdx}"]`);
+  if (el) el.scrollIntoView({ block:'nearest' });
+}
+
+// Ferme la liste si clic en dehors
+document.addEventListener('click', e => {
+  const box = document.getElementById('lieu-suggest');
+  const inp = document.getElementById('inp-lieu');
+  if (box && inp && !box.contains(e.target) && e.target !== inp) closeLieuSuggest();
+});
+
+// Repositionne la liste (position:fixed) quand on scrolle ou redimensionne
+window.addEventListener('scroll', () => {
+  const box = document.getElementById('lieu-suggest');
+  if (box && box.style.display !== 'none') positionLieuSuggest();
+}, true);
+window.addEventListener('resize', () => {
+  const box = document.getElementById('lieu-suggest');
+  if (box && box.style.display !== 'none') positionLieuSuggest();
+});
+
+// ════════════════════════════════════════════════════════════
+//  CATALOGUE COMPLET DES ACTIVITÉS
+// ════════════════════════════════════════════════════════════
+const CATALOGUE = {
+
+  // ──────────────────────────────── HIVER ────────────────────────────────────
+  hiver: {
+
+    glisse: {
+      label: '🎿 Glisse',
+      acts: [
+        { id:'ski-piste',    icon:'⛷️',  name:'Ski alpin',    badge:'easy',    badgeTxt:'Piste',
+          lieu:'🏔️ Station', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Avancé','🤙 Expert'],
+          kiffs:['🎿 Premières traces','🍻 Après-Ski','📸 Vidéo','🚠 Remontées','🎶 Ambiance station'],
+          rythmes:[{i:'🌅',t:'Early bird',s:'8h30 sur les pistes'},{i:'😎',t:'Flow naturel',s:'À notre rythme'},{i:'🦉',t:'Après-ski first',s:'Matins tranquilles'}] },
+        { id:'snowboard',    icon:'🏂',  name:'Snowboard',    badge:'medium',  badgeTxt:'Piste',
+          lieu:'🏔️ Station', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Avancé','🤙 Expert / Park'],
+          kiffs:['🏄 Snowpark tricks','🌨️ Poudreuse','🍻 Après-ski','🎶 Playlists','📸 Contenu'],
+          rythmes:[{i:'🌅',t:'Premières traces',s:'On dévale avant tout le monde'},{i:'😎',t:'Chill',s:'Sessions courtes et intenses'},{i:'🎉',t:'After-ski',s:'Ride + soirée assurée'}] },
+        { id:'freeride',     icon:'🌨️', name:'Freeride',     badge:'intense', badgeTxt:'Off-piste',
+          lieu:'🏔️ Massif', niveaux:['🔥 Confirmé','🤙 Expert','⚡ Pro-am'],
+          kiffs:['❄️ Poudreuse vierge','📡 Chasse météo','🛟 Sécu/DVA','🏔️ Sommets sauvages','📸 POV'],
+          rythmes:[{i:'📡',t:'Chasseur de poudre',s:'On suit la météo'},{i:'🎯',t:'Planifié',s:'Itinéraire établi'},{i:'⚡',t:'Spontané',s:'Décision en live'}] },
+        { id:'ski-rando',    icon:'🎿',  name:'Ski rando',    badge:'intense', badgeTxt:'Montagne',
+          lieu:'🏔️ Massif alpin', niveaux:['🎯 Initié (guidé)','🔥 Confirmé','🤙 Autonome'],
+          kiffs:['🌅 Lever de soleil','🎿 Descente vierge','🍵 Pause col','📸 Contenu','🤝 Entraide'],
+          rythmes:[{i:'⚡',t:'Physique',s:'On grimpe fort'},{i:'🎯',t:'Technique',s:'Itinéraire précis'},{i:'🧘',t:'Découverte',s:'Rythme tranquille'}] },
+        { id:'snowpark',     icon:'🛹',  name:'Snowpark',     badge:'intense', badgeTxt:'Park',
+          lieu:'🏔️ Station park', niveaux:['🐣 Débutant (petits modules)','🎯 Intermédiaire','🔥 Avancé','🤙 Rider confirmé'],
+          kiffs:['🛹 Tricks & rails','📸 Filming','🎶 Musique','🍻 Session longue','💪 Progression'],
+          rythmes:[{i:'🔁',t:'Sessions répétées',s:'On perfectionne les tricks'},{i:'😎',t:'Chill & progress',s:'À son rythme'},{i:'📸',t:'Filming day',s:'Tournage et montage'}] },
+        { id:'luge',         icon:'🛷',  name:'Luge',         badge:'easy',    badgeTxt:'Fun',
+          lieu:'🏔️ Station', niveaux:['🐣 Tout niveau'],
+          kiffs:['😂 Fun & frissons','👨‍👩‍👧 Famille','🍻 Bonne ambiance'],
+          rythmes:[{i:'😎',t:'Détendu',s:'Quelques descentes'},{i:'🔁',t:'Marathon',s:'On fait les chrono'},{i:'🎉',t:'Festif',s:'Apéro inclus'}] },
+      ]
+    },
+
+    nature_hiver: {
+      label: '🥾 Nature',
+      acts: [
+        { id:'raquettes',    icon:'🥾',  name:'Raquettes',    badge:'easy',    badgeTxt:'Balade',
+          lieu:'🌲 Forêt / massif', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Sportif'],
+          kiffs:['🌅 Lever de soleil','🧘 Zen & silence','📸 Photos','🍵 Thé chaud','🌲 Forêts enneigées'],
+          rythmes:[{i:'🧘',t:'Zen & slow',s:'On profite du silence'},{i:'😎',t:'Sportif',s:'Cardio + paysages'},{i:'⚡',t:'Longue rando',s:'Itinéraire complet'}] },
+        { id:'rando-hiver',  icon:'🏔️', name:'Rando hiver',  badge:'medium',  badgeTxt:'Marche',
+          lieu:'🏔️ Montagne', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Confirmé'],
+          kiffs:['🌄 Panoramas','🦌 Faune hivernale','📸 Paysages','☕ Pauses café','🏔️ Cols'],
+          rythmes:[{i:'🚶',t:'Balade',s:'Quelques km tranquilles'},{i:'🎯',t:'Randonnée',s:'Journée complète'},{i:'⚡',t:'Trail hiver',s:'Rythme soutenu'}] },
+        { id:'ski-nordique', icon:'⛸️', name:'Ski nordique', badge:'medium',  badgeTxt:'Fond',
+          lieu:'🌲 Piste nordique', niveaux:['🐣 Débutant','🎯 Classique','🔥 Skating technique'],
+          kiffs:['🌅 Forêts glacées','🧘 Méditation en mouvement','💪 Cardio','📸 Paysages'],
+          rythmes:[{i:'🧘',t:'Ballade douce',s:'Découverte du fond'},{i:'💪',t:'Training',s:'Intervalles & technique'},{i:'🔁',t:'Marathon',s:'Longue distance'}] },
+        { id:'patinage',     icon:'⛸️', name:'Patinage',     badge:'easy',    badgeTxt:'Glace',
+          lieu:'🏙️ Patinoire / lac', niveaux:['🐣 Tout niveau'],
+          kiffs:['😄 Fun','👫 Romantique','🎶 Ambiance','🍫 Vin chaud après'],
+          rythmes:[{i:'😄',t:'Fun',s:'On rigole en tombant'},{i:'💃',t:'Artistique',s:'Figures & technique'},{i:'🏒',t:'Hockey',s:'Session hockey'}] },
+      ]
+    },
+
+    montagne_urban: {
+      label: '🏙️ Montagne & Ville',
+      acts: [
+        { id:'via-ferrata-h', icon:'🧗', name:'Via ferrata', badge:'intense', badgeTxt:'Vertical',
+          lieu:'🏔️ Falaise', niveaux:['🎯 Initié','🔥 Confirmé','🤙 Expert'],
+          kiffs:['🏔️ Vide & adrénaline','📸 Vues incroyables','🤝 Entraide','💪 Force bras'],
+          rythmes:[{i:'🎯',t:'Découverte',s:'Parcours initiation'},{i:'🔥',t:'Engagement',s:'Voie difficile'},{i:'⚡',t:'Enchainement',s:'Plusieurs voies'}] },
+        { id:'spa-montagne',  icon:'🧖', name:'Spa Montagne',badge:'easy',    badgeTxt:'Bien-être',
+          lieu:'🏔️ Station / village', niveaux:['🐣 Tout niveau'],
+          kiffs:['🛁 Jacuzzi ext.','💆 Massage','🍷 Verre de vin','🌨️ Vue enneigée','😴 Récup totale'],
+          rythmes:[{i:'😴',t:'Full récup',s:'Journée détente complète'},{i:'🔄',t:'Ride + spa',s:'Pistes le matin, spa le soir'},{i:'🎁',t:'Cadeau',s:'Expérience offerte'}] },
+        { id:'snow-visit',    icon:'🏔️', name:'Visite village',badge:'easy',  badgeTxt:'Culture',
+          lieu:'🏔️ Village alpin', niveaux:['🐣 Tout niveau'],
+          kiffs:['🏡 Architecture','🧀 Gastronomie alpine','📸 Photos','🛍️ Artisanat','☕ Cafés cosy'],
+          rythmes:[{i:'🚶',t:'Flânerie',s:'On se perd dans les ruelles'},{i:'📸',t:'Photo walk',s:'Session photo'},{i:'🍽️',t:'Gastronomie',s:'Tables et producteurs'}] },
+        { id:'motoneige',     icon:'🏍️', name:'Motoneige',   badge:'intense', badgeTxt:'Motorisé',
+          lieu:'🏔️ Station', niveaux:['🐣 Balade guidée','🎯 Semi-guidé','🔥 Libre'],
+          kiffs:['🏎️ Vitesse & neige','📸 Paysages','🔥 Adrénaline','🧊 Grand froid'],
+          rythmes:[{i:'🐢',t:'Balade',s:'Circuit panoramique calme'},{i:'🔥',t:'Aventure',s:'Itinéraire long'},{i:'⚡',t:'Full gaz',s:'Vitesse max'}] },
+      ]
+    },
+
+    extreme_hiver: {
+      label: '⚡ Extrême',
+      acts: [
+        { id:'parachute-h',  icon:'🪂',  name:'Parachute',   badge:'extreme', badgeTxt:'Adrénaline',
+          lieu:'🏔️ Montagne / DZ', niveaux:['🐣 Tandem','🎯 Solo débutant','🤙 Confirmé'],
+          kiffs:['🎯 Saut en tandem','🌄 Vue de dingue','💨 Chute libre','📸 Caméra incluse'],
+          rythmes:[{i:'😱',t:'Premier saut',s:'Tandem encadré'},{i:'⚡',t:'Régulier',s:'On progresse ensemble'},{i:'🤙',t:'Maîtrisé',s:'Formation AFF'}] },
+        { id:'helico-ski',   icon:'🚁',  name:'Héliski',     badge:'extreme', badgeTxt:'Prestige',
+          lieu:'🏔️ Alpes / hors-piste', niveaux:['🤙 Expert seulement'],
+          kiffs:['🚁 Décollage','❄️ Poudreuse vierge absolue','🏔️ Sommets inaccessibles','📸 Contenu exceptionnel'],
+          rythmes:[{i:'🎯',t:'Découverte',s:'1-2 descentes'},{i:'🔥',t:'Full day',s:'Journée complète'},{i:'⚡',t:'Multi-day',s:'Séjour héliski'}] },
+        { id:'wingsuit',     icon:'🦅',  name:'Wingsuit',    badge:'extreme', badgeTxt:'Extrême',
+          lieu:'🏔️ Alpes', niveaux:['🤙 Expert (base jump exp.)'],
+          kiffs:['🦅 Vol en wingsuit','📸 Caméra GoPro','⚡ Sensation pure','🤙 Crew de haut niveau'],
+          rythmes:[{i:'🎯',t:'Approche',s:'Reconnaissance terrain'},{i:'⚡',t:'Jump day',s:'Multi sauts'},{i:'📸',t:'Filming',s:'Session film'}] },
+        { id:'ice-climbing', icon:'🧊',  name:'Cascade glace',badge:'extreme',badgeTxt:'Vertical',
+          lieu:'🏔️ Cascade / falaise', niveaux:['🎯 Initié (encadré)','🔥 Confirmé','🤙 Expert'],
+          kiffs:['🧊 Sensation unique','💪 Force & technique','📸 Photos epiques','🤝 Encordement'],
+          rythmes:[{i:'🎯',t:'Initiation',s:'Sortie encadrée'},{i:'🔥',t:'Progression',s:'Technique avancée'},{i:'⚡',t:'Multi-longueurs',s:'Grande voie glacée'}] },
+      ]
+    },
+
+  }, // fin hiver
+
+  // ──────────────────────────────── ÉTÉ ────────────────────────────────────
+  ete: {
+
+    eau: {
+      label: '🌊 Eau',
+      acts: [
+        { id:'surf',         icon:'🏄',  name:'Surf',         badge:'medium',  badgeTxt:'Vagues',
+          lieu:'🌊 Spot de surf', niveaux:['🐣 Débutant (mousse)','🎯 Intermédiaire','🔥 Confirmé','🤙 Avancé'],
+          kiffs:['🌊 Early session','🍹 Apéros sunset','🏖️ Beach life','📸 Contenu','🎵 Vibes surf'],
+          rythmes:[{i:'🌅',t:'Early bird',s:'Session 6h du mat'},{i:'😎',t:'Flow',s:'Selon les vagues'},{i:'🌙',t:'Session soir',s:'Vagues du soir'}] },
+        { id:'kitesurf',     icon:'🪁',  name:'Kitesurf',     badge:'intense', badgeTxt:'Vent',
+          lieu:'🪁 Spot kite', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Avancé','🤙 Freestyle'],
+          kiffs:['💨 Chasse le vent','🌊 Waterstart','📸 Aérien','🏖️ Beach','🍹 Sunset'],
+          rythmes:[{i:'📡',t:'Chasseur de vent',s:'On suit la météo'},{i:'🎯',t:'Planifié',s:'Spots reconnus'},{i:'😎',t:'Chill',s:'Kite + repos'}] },
+        { id:'wakeboard',    icon:'🛥️', name:'Wakeboard',    badge:'medium',  badgeTxt:'Lac',
+          lieu:'🌊 Lac / plan d\'eau', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Tricks','🤙 Expert'],
+          kiffs:['🛥️ Sessions bateau','🏊 Baignade','🍹 Apéros','📸 Contenu','🎵 Musique'],
+          rythmes:[{i:'🌅',t:'Matin calme',s:'Lac miroir'},{i:'😎',t:'Journée',s:'Session + détente'},{i:'🎉',t:'Fête',s:'Session + soirée'}] },
+        { id:'kayak-canoe',  icon:'🚣', name:'Kayak / Canoë',badge:'easy',    badgeTxt:'Rivière',
+          lieu:'🏞️ Rivière / lac', niveaux:['🐣 Tout niveau','🎯 Rapides','🔥 Eaux vives'],
+          kiffs:['🏞️ Paysages fluviaux','🤿 Baignade','🍉 Pique-nique','📸 Nature','🦆 Faune'],
+          rythmes:[{i:'🐢',t:'Balade',s:'Parcours tranquille'},{i:'🎯',t:'Journée',s:'Itinéraire fluvial'},{i:'⚡',t:'Eaux vives',s:'Rapides & sensations'}] },
+        { id:'plongee',      icon:'🤿',  name:'Plongée',      badge:'medium',  badgeTxt:'Sous-marin',
+          lieu:'🌊 Mer / lac', niveaux:['🐣 Baptême','🎯 Niveau 1-2','🔥 Niveau 3+','🤙 Instructeur'],
+          kiffs:['🐠 Faune marine','📸 Photo sous-marine','🌊 Épaves','🤝 Buddy system','🧜 Découverte'],
+          rythmes:[{i:'🌅',t:'Matin',s:'Visibilité maximale'},{i:'🎯',t:'Double palanquée',s:'2 plongées/j'},{i:'🌊',t:'Nuit',s:'Plongée nocturne'}] },
+        { id:'sup-paddle',   icon:'🏄', name:'SUP / Paddle', badge:'easy',    badgeTxt:'Glisse douce',
+          lieu:'🌊 Mer / lac / rivière', niveaux:['🐣 Tout niveau'],
+          kiffs:['🌅 Lever de soleil','📸 Photos','🏖️ Côtes à explorer','🧘 Yoga paddle','🍹 Apéro'],
+          rythmes:[{i:'🧘',t:'Yoga paddle',s:'Méditation sur l\'eau'},{i:'😎',t:'Balade',s:'On explore'},{i:'⚡',t:'Race',s:'Compétitif'}] },
+      ]
+    },
+
+    montagne_ete: {
+      label: '🏔️ Montagne',
+      acts: [
+        { id:'rando-ete',    icon:'🥾',  name:'Randonnée',    badge:'easy',    badgeTxt:'Marche',
+          lieu:'🏔️ Montagne / GR', niveaux:['🐣 Balade (< 5km)','🎯 Randonneur (5-15km)','🔥 Sportif (15km+)','🤙 Haute montagne'],
+          kiffs:['🌸 Flore & faune','🌄 Panoramas','⛺ Bivouac','🍳 Repas altitude','📸 Paysages'],
+          rythmes:[{i:'🐢',t:'Balade',s:'Distance courte & facile'},{i:'🎯',t:'Randonnée',s:'Journée complète'},{i:'⛺',t:'Multi-jours',s:'Bivouac inclus'}] },
+        { id:'vtt',          icon:'🚵',  name:'VTT / MTB',    badge:'intense', badgeTxt:'Trail',
+          lieu:'🏔️ Bike park / sentiers', niveaux:['🐣 Débutant (verts)','🎯 Intermédiaire (bleus)','🔥 Confirmé (rouges/noirs)','🤙 Enduro/DH'],
+          kiffs:['🌲 Sentiers techniques','⚡ Descente DH','💪 Montée VO2','📸 Vidéo embarquée','🍺 Bière méritée'],
+          rythmes:[{i:'😎',t:'Cross-country',s:'Rando VTT longue'},{i:'🔥',t:'Enduro',s:'Montée + descente'},{i:'⚡',t:'Descente DH',s:'Full gaz en descente'}] },
+        { id:'escalade-ete', icon:'🧗',  name:'Escalade',     badge:'medium',  badgeTxt:'Vertical',
+          lieu:'🏔️ Falaise / SAE', niveaux:['🐣 Initiation','🎯 Voies 4-5','🔥 Voies 6-7','🤙 Voies 8+'],
+          kiffs:['💪 Physique & mental','🏔️ Vues somptueuses','🤝 Encordement','📸 Action shots','🎯 Résolution problèmes'],
+          rythmes:[{i:'🐢',t:'Initiation',s:'Premières voies'},{i:'🎯',t:'Session',s:'Journée escalade'},{i:'⚡',t:'Multi-longueurs',s:'Grande voie'}] },
+        { id:'via-ferrata-e',icon:'⛓️', name:'Via ferrata',  badge:'intense', badgeTxt:'Accroché',
+          lieu:'🏔️ Falaise', niveaux:['🎯 Initié','🔥 Confirmé','🤙 Expert'],
+          kiffs:['😱 Adrénaline','🏔️ Vues','🤝 Aide mutuelle','💪 Force bras','📸 Epique'],
+          rythmes:[{i:'🐢',t:'Découverte',s:'Initiation encadrée'},{i:'🔥',t:'Sportif',s:'Voie difficile'},{i:'⚡',t:'Marathon',s:'Plusieurs voies'}] },
+        { id:'trail-run',    icon:'🏃',  name:'Trail running', badge:'intense', badgeTxt:'Course',
+          lieu:'🏔️ Sentiers', niveaux:['🎯 10-20km','🔥 20-40km','🤙 Ultra (40km+)'],
+          kiffs:['🌄 Aube en montagne','💪 Dépassement de soi','🤝 Crew de runners','📸 Contenu trail','🍺 Ravito festif'],
+          rythmes:[{i:'🐢',t:'Trail loisir',s:'Rythme découverte'},{i:'🎯',t:'Compétition',s:'On vise le chrono'},{i:'⚡',t:'Ultra',s:'Long, très long'}] },
+        { id:'parachute-e',  icon:'🪂',  name:'Parachute',    badge:'extreme', badgeTxt:'Adrénaline',
+          lieu:'🌄 DZ ouvert', niveaux:['🐣 Tandem','🎯 Solo débutant','🤙 Confirmé'],
+          kiffs:['😱 Saut en tandem','🌄 Vue panoramique','💨 Chute libre','📸 Vidéo embarquée'],
+          rythmes:[{i:'😱',t:'Premier saut',s:'Tandem encadré'},{i:'⚡',t:'Régulier',s:'On progresse'},{i:'🤙',t:'Maîtrisé',s:'Formation AFF'}] },
+      ]
+    },
+
+    velo_roulant: {
+      label: '🚴 Roues',
+      acts: [
+        { id:'velo-route',   icon:'🚴',  name:'Vélo route',   badge:'medium',  badgeTxt:'Asphalte',
+          lieu:'🛣️ Route / cols', niveaux:['🐣 Balade (< 30km)','🎯 Randonneur (30-80km)','🔥 Grimpeur (cols++)','🤙 Sportif (100km+)'],
+          kiffs:['☕ Café de route','🏔️ Cols mythiques','🍺 Bière méritée','📸 Paysages','🤝 Peloton'],
+          rythmes:[{i:'😎',t:'Touristique',s:'Profiter du trajet'},{i:'💪',t:'Sportif',s:'Watts & segments'},{i:'🎒',t:'Bikepacking',s:'Autonomie totale'}] },
+        { id:'velo-gravel',  icon:'🚵',  name:'Gravel',        badge:'medium',  badgeTxt:'Mixte',
+          lieu:'🌿 Chemins / cols', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Confirmé','🤙 Aventurier'],
+          kiffs:['🌿 Chemins oubliés','⛺ Bivouac','🗺️ Navigation','📸 Nature','🍳 Cuisine outdoor'],
+          rythmes:[{i:'🗺️',t:'Exploration',s:'On découvre'},{i:'💪',t:'Sportif',s:'Distance & dénivelé'},{i:'⛺',t:'Bikepacking',s:'Multi-jours aventure'}] },
+        { id:'moto',         icon:'🏍️', name:'Moto',          badge:'intense', badgeTxt:'Motorisé',
+          lieu:'🛣️ Route / circuit', niveaux:['🐣 Permis récent','🎯 Expérimenté','🔥 Passionné','🤙 Circuit / enduro'],
+          kiffs:['🛣️ Routes sinueuses','☕ Étapes café','📸 Roadtrip','🔧 Mécanique','🎶 Playlist road'],
+          rythmes:[{i:'😎',t:'Balade',s:'Route panoramique'},{i:'🔥',t:'Roadtrip',s:'Multi-jours'},{i:'⚡',t:'Circuit',s:'Piste ou enduro'}] },
+        { id:'skate-urbain', icon:'🛹',  name:'Skate / BMX',   badge:'medium',  badgeTxt:'Urban',
+          lieu:'🏙️ Skatepark / ville', niveaux:['🐣 Débutant','🎯 Street intermediate','🔥 Avancé','🤙 Pro-am'],
+          kiffs:['🛹 Tricks','📸 Filming','🎶 Musique','🏙️ Spots urbains','👟 Sneakers culture'],
+          rythmes:[{i:'😎',t:'Session détendue',s:'On tente des tricks'},{i:'🎯',t:'Progression',s:'Technique & consistency'},{i:'📸',t:'Filming day',s:'Tournage & montage'}] },
+      ]
+    },
+
+    urbain_social: {
+      label: '🏙️ Urbain & Social',
+      acts: [
+        { id:'beach-volley',icon:'🏐',  name:'Beach-volley',  badge:'easy',    badgeTxt:'Plage',
+          lieu:'🏖️ Plage / city beach', niveaux:['🐣 Débutant','🎯 Intermédiaire','🔥 Compétitif'],
+          kiffs:['🏐 Match endiablé','☀️ Bronzette','🍹 Apéro','📸 Photos','🎶 Ambiance'],
+          rythmes:[{i:'😎',t:'Loisir',s:'Quelques sets pour le fun'},{i:'🏆',t:'Compétitif',s:'Tournoi entre crews'},{i:'🎉',t:'Festif',s:'Beach + after-beach'}] },
+        { id:'salle-sport',  icon:'🏋️', name:'Salle de sport',badge:'medium',  badgeTxt:'Training',
+          lieu:'🏙️ Salle / parc', niveaux:['🐣 Débutant','🎯 Régulier','🔥 Avancé','🤙 Compétiteur'],
+          kiffs:['💪 Musculation','🤸 CrossFit','🧘 Yoga','🏃 Cardio','📸 Progress'],
+          rythmes:[{i:'😎',t:'Découverte',s:'On essaie ensemble'},{i:'💪',t:'Session',s:'Entraînement ciblé'},{i:'⚡',t:'Intensif',s:'HIIT & compétition'}] },
+        { id:'arts-martiaux',icon:'🥊', name:'Arts martiaux', badge:'medium',  badgeTxt:'Combat',
+          lieu:'🥊 Dojo / salle', niveaux:['🐣 Débutant','🎯 Pratiquant','🔥 Compétiteur'],
+          kiffs:['🥋 Technique','🤼 Sparring','🧘 Discipline','💪 Cardio','🏆 Tournoi'],
+          rythmes:[{i:'🧘',t:'Apprentissage',s:'Technique & kata'},{i:'💪',t:'Entraînement',s:'Sparring encadré'},{i:'🏆',t:'Compétition',s:'Tournoi & podium'}] },
+        { id:'course-a-pied',icon:'🏃', name:'Course à pied',  badge:'easy',   badgeTxt:'Running',
+          lieu:'🌳 Parc / ville', niveaux:['🐣 Débutant','🎯 5-10km','🔥 Semi/marathon','🤙 Ultra'],
+          kiffs:['🌅 Run au lever','🌳 Parcs urbains','🤝 Groupe running','📸 Strava','☕ Café post-run'],
+          rythmes:[{i:'🐢',t:'Footing loisir',s:'30-45min détendu'},{i:'🎯',t:'Programme',s:'Objectif course'},{i:'⚡',t:'Interval training',s:'Fractionné intense'}] },
+        { id:'visite-ville',  icon:'🗺️', name:'Visite ville',  badge:'easy',   badgeTxt:'Culture',
+          lieu:'🏙️ Ville / quartier', niveaux:['🐣 Tout niveau'],
+          kiffs:['🏛️ Architecture','🍽️ Gastronomie','📸 Photo urbain','🛍️ Shopping','🎨 Street art'],
+          rythmes:[{i:'🐢',t:'Flânerie',s:'On se perd'},{i:'📸',t:'Photo walk',s:'Shooting urbain'},{i:'🍽️',t:'Food tour',s:'Restos & bars'}] },
+        { id:'festival',      icon:'🎪', name:'Festival',      badge:'easy',   badgeTxt:'Événement',
+          lieu:'🎪 Lieu d\'événement', niveaux:['🐣 Tout niveau'],
+          kiffs:['🎵 Concerts','🍻 Ambiance','📸 Moments','👯 Danser','🌈 Diversité'],
+          rythmes:[{i:'😎',t:'Journée',s:'Quelques scènes'},{i:'🎉',t:'Full festival',s:'Du matin au soir'},{i:'⛺',t:'Camping festival',s:'Sur place'}] },
+        { id:'yoga-meditation',icon:'🧘',name:'Yoga / Méditation',badge:'easy',badgeTxt:'Bien-être',
+          lieu:'🌿 Studio / nature', niveaux:['🐣 Débutant','🎯 Pratiquant','🔥 Confirmé'],
+          kiffs:['🧘 Postures','🌅 Yoga au lever','🌊 Paddle yoga','🏔️ Montagne','📿 Méditation'],
+          rythmes:[{i:'🌅',t:'Morning yoga',s:'Réveil en douceur'},{i:'🧘',t:'Session',s:'1h30 de pratique'},{i:'🏕️',t:'Retraite',s:'Week-end bien-être'}] },
+      ]
+    },
+
+    mer_plage: {
+      label: '🏖️ Mer & Plage',
+      acts: [
+        { id:'beach-life',   icon:'🏖️', name:'Beach life',    badge:'easy',   badgeTxt:'Détente',
+          lieu:'🏖️ Plage', niveaux:['🐣 Tout niveau'],
+          kiffs:['☀️ Bronzette','🍦 Glaces','🎵 Playlist été','💤 Sieste','🌊 Baignade'],
+          rythmes:[{i:'😴',t:'Full relax',s:'On ne fait rien'},{i:'😎',t:'Mix',s:'Plage + activités'},{i:'🎉',t:'Social',s:'Rencontres & fête'}] },
+        { id:'snorkeling',   icon:'🤿',  name:'Snorkeling',    badge:'easy',   badgeTxt:'Mer',
+          lieu:'🌊 Mer claire', niveaux:['🐣 Tout niveau'],
+          kiffs:['🐠 Poissons colorés','🐙 Pieuvres','📸 Photo aquatique','🌊 Eau cristalline','🏝️ Criques isolées'],
+          rythmes:[{i:'😎',t:'Balade',s:'Exploration cool'},{i:'🎯',t:'Technique',s:'Apnée & photos'},{i:'🏝️',t:'Exploration',s:'Coins secrets'}] },
+        { id:'voile',        icon:'⛵',  name:'Voile / Cata',  badge:'medium', badgeTxt:'Nautique',
+          lieu:'⛵ Port / plan d\'eau', niveaux:['🐣 Baptême','🎯 Débutant','🔥 Confirmé','🤙 Régatier'],
+          kiffs:['⛵ Sensation vent','🌊 Mer ouverte','📸 Photos sur l\'eau','🤝 Équipage','🍷 Apéro à bord'],
+          rythmes:[{i:'😎',t:'Sortie ballade',s:'Navigation tranquille'},{i:'⚡',t:'Régate',s:'Compétition'},{i:'🏝️',t:'Croisière',s:'Multi-jours'}] },
+        { id:'jet-ski',      icon:'🛥️', name:'Jet-ski',       badge:'intense',badgeTxt:'Motorisé',
+          lieu:'🌊 Mer / lac', niveaux:['🐣 Débutant (guidé)','🎯 Autonome','🔥 Tricks'],
+          kiffs:['💨 Vitesse','💦 Éclaboussures','📸 Action','🏖️ Criques','☀️ Été total'],
+          rythmes:[{i:'😎',t:'Balade',s:'Découverte du plan d\'eau'},{i:'⚡',t:'Full vitesse',s:'Sensations fortes'},{i:'📸',t:'Shooting',s:'Photos & vidéos action'}] },
+      ]
+    },
+
+  }, // fin ete
+};
+
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+let MODE = localStorage.getItem('snm_mode') || 'hiver';
+let selectedAct = null;
+let dispoType = null;
+let intensityVal = null;
+let groupSize = null;
+
+// ════════════════════════════════════════════════════════════
+//  SEASON CALLBACK (depuis nav.js)
+// ════════════════════════════════════════════════════════════
+function onSeasonChange(mode) {
+  MODE = mode;
+  const isEte = mode === 'ete';
+
+  // BG
+  document.getElementById('bg-layer').style.background = isEte
+    ? 'linear-gradient(160deg,#1a0f00 0%,#2d1800 25%,#3a2200 45%,#1a3040 60%,#0d1f30 75%,#060e1a 100%)'
+    : 'linear-gradient(160deg,#0f1f3d 0%,#0c2340 25%,#1a3a5c 45%,#2d5a7a 60%,#1e3a52 75%,#0a1628 100%)';
+  document.getElementById('bg-glow').style.background = isEte
+    ? 'radial-gradient(ellipse at 75% 30%,rgba(251,191,36,.07) 0%,transparent 50%)'
+    : 'radial-gradient(ellipse at 25% 65%,rgba(96,165,250,.07) 0%,transparent 55%)';
+  document.getElementById('svg-hiver').style.display = isEte ? 'none' : '';
+  document.getElementById('svg-ete').style.display   = isEte ? '' : 'none';
+
+  // Labels
+  document.getElementById('page-title').textContent = isEte ? 'Lance ta recherche ☀️' : 'Lance ta recherche ❄️';
+  document.getElementById('page-sub').textContent   = isEte
+    ? 'Une activité, tes dispo, ton crew — on s\'occupe du reste.'
+    : 'Une sortie ou un séjour, peu importe — on trouve ton crew.';
+
+  // Update form inputs color when ete
+  document.querySelectorAll('.form-input').forEach(el => {
+    el.classList.toggle('form-input-ete', isEte);
+  });
+
+  // Reset
+  selectedAct = null;
+  dispoType = null;
+  document.getElementById('section-dispo').classList.add('hidden');
+  document.getElementById('section-prefs').classList.add('hidden');
+  document.getElementById('selected-act-badge').classList.add('hidden');
+
+  buildCats();
+}
+
+// ════════════════════════════════════════════════════════════
+//  BUILD UI
+// ════════════════════════════════════════════════════════════
+let currentCat = null;
+
+function buildCats() {
+  const cats = CATALOGUE[MODE];
+  const container = document.getElementById('cat-tabs');
+  const isEte = MODE === 'ete';
+  container.innerHTML = Object.entries(cats).map(([key, cat], i) =>
+    `<button class="cat-btn cat-btn-${isEte?'ete':'hiver'} ${i===0?'active':''}" data-cat="${key}" onclick="selectCat('${key}')">${cat.label}</button>`
+  ).join('');
+  currentCat = Object.keys(cats)[0];
+  buildActGrid(currentCat);
+}
+
+function selectCat(key) {
+  currentCat = key;
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.cat === key);
+  });
+  buildActGrid(key);
+}
+
+function buildActGrid(catKey) {
+  const cat = CATALOGUE[MODE][catKey];
+  const isEte = MODE === 'ete';
+  const grid = document.getElementById('act-grid');
+
+  const BADGE_STYLES = {
+    easy:    { bg:'rgba(52,211,153,.15)',  color:'#34d399' },
+    medium:  { bg:'rgba(251,191,36,.15)',  color:'#fbbf24' },
+    intense: { bg:'rgba(248,113,113,.15)', color:'#f87171' },
+    extreme: { bg:'rgba(167,139,250,.15)', color:'#a78bfa' },
+  };
+
+  grid.innerHTML = cat.acts.map(act => {
+    const bs = BADGE_STYLES[act.badge] || BADGE_STYLES.easy;
+    const checked = selectedAct?.id === act.id ? 'checked' : '';
+    return `<label class="act-card${isEte?' act-card-ete':''}">
+      <input type="radio" name="activite" value="${act.id}" ${checked} onchange="onActivity('${act.id}','${catKey}')">
+      <span class="act-label">
+        <span class="act-icon">${act.icon}</span>
+        <span class="act-name">${act.name}</span>
+        <span class="act-badge" style="background:${bs.bg};color:${bs.color};">${act.badgeTxt}</span>
+      </span>
+    </label>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+//  SELECT ACTIVITY
+// ════════════════════════════════════════════════════════════
+function onActivity(actId, catKey) {
+  const cat = CATALOGUE[MODE][catKey];
+  const act = cat.acts.find(a => a.id === actId);
+  if (!act) return;
+  selectedAct = act;
+  const isEte = MODE === 'ete';
+
+  // Reset du lieu à chaque changement d'activité : une ville choisie pour un sport
+  // ne convient pas forcément au nouveau. On vide proprement et on ferme la liste.
+  const lieuInp = document.getElementById('inp-lieu');
+  if (lieuInp) {
+    lieuInp.value = '';
+    lieuInp.placeholder = `📍 Spot adapté à ${act.name}…`;
+  }
+  if (typeof closeLieuSuggest === 'function') closeLieuSuggest();
+
+  // Badge selected
+  const badge = document.getElementById('selected-act-badge');
+  badge.textContent = `${act.icon} ${act.name}`;
+  badge.classList.remove('hidden');
+  badge.style.background = isEte ? 'rgba(251,191,36,.15)' : 'rgba(34,211,238,.15)';
+  badge.style.color       = isEte ? '#fbbf24' : '#22d3ee';
+  badge.style.borderColor = isEte ? 'rgba(251,191,36,.35)' : 'rgba(34,211,238,.35)';
+
+  // Show dispo section
+  const dispoSec = document.getElementById('section-dispo');
+  dispoSec.classList.remove('hidden');
+  dispoSec.classList.remove('sec-anim'); void dispoSec.offsetWidth; dispoSec.classList.add('sec-anim');
+
+  // Update lieu placeholder
+  document.getElementById('lieu-label').textContent = act.lieu;
+  document.getElementById('inp-lieu').placeholder = isEte
+    ? 'Ville, spot, plan d\'eau, région…'
+    : 'Station, massif, village, spot…';
+
+  // Update date input style
+  document.querySelectorAll('#date-from,#date-to').forEach(el => {
+    el.style.borderColor = isEte ? 'rgba(71,85,105,.5)' : 'rgba(71,85,105,.5)';
+  });
+
+  // Trigger prefs build
+  buildPrefs(act, isEte);
+}
+
+// ════════════════════════════════════════════════════════════
+//  BUILD PREFS
+// ════════════════════════════════════════════════════════════
+function buildPrefs(act, isEte) {
+  // Niveau
+  document.getElementById('niveau-label').textContent = `🎯 Ton niveau — ${act.name}`;
+  document.getElementById('sel-niveau').innerHTML = act.niveaux.map(n => `<option>${n}</option>`).join('');
+
+  // Kiffs
+  document.getElementById('kiff-grid').innerHTML = act.kiffs.map(k =>
+    `<label class="kiff${isEte?' kiff-ete':''}"><input type="checkbox"><span class="kiff-lbl">${k}</span></label>`
+  ).join('');
+
+  // Rythme
+  document.getElementById('rythme-label').textContent = isEte ? '🕐 Ton rythme de sortie' : '🕐 Ton rythme';
+  document.getElementById('rythme-grid').innerHTML = act.rythmes.map((r,i) =>
+    `<label class="rythme-card${isEte?' rythme-card-ete':''}">
+      <input type="radio" name="rythme" value="${i}">
+      <span class="rythme-lbl">
+        <span style="font-size:1.3rem;">${r.i}</span>
+        <span><div class="r-title">${r.t}</div><div class="r-sub">${r.s}</div></span>
+      </span>
+    </label>`
+  ).join('');
+
+  // Submit button
+  const btn = document.getElementById('submit-btn');
+  btn.style.background = isEte
+    ? 'linear-gradient(135deg,#fbbf24,#f97316)'
+    : 'linear-gradient(135deg,#06b6d4,#3b82f6)';
+  btn.innerHTML = isEte ? '🔥 Trouver mon Crew été' : '⚡ Trouver mon Crew';
+
+  // Show prefs
+  const prefSec = document.getElementById('section-prefs');
+  prefSec.classList.remove('hidden');
+  prefSec.classList.remove('sec-anim'); void prefSec.offsetWidth; prefSec.classList.add('sec-anim');
+}
+
+// ════════════════════════════════════════════════════════════
+//  DISPO / INTENSITY / GROUP
+// ════════════════════════════════════════════════════════════
+function setDispoType(type) {
+  dispoType = type;
+  const isEte = MODE === 'ete';
+  const cls = isEte ? 'active-ete' : 'active-hiver';
+
+  // Highlight active btn
+  document.querySelectorAll('.dispo-btn[data-type]').forEach(b => {
+    b.classList.remove('active-hiver','active-ete');
+    b.classList.toggle(cls, b.dataset.type === type);
+  });
+
+  // Show/hide sub-blocks
+  ['day','weekend','week','flexible'].forEach(t => {
+    const bl = document.getElementById('dispo-'+t+'-block');
+    if (bl) {
+      bl.classList.toggle('hidden', t !== type);
+      if (t === type) { bl.classList.remove('sec-anim'); void bl.offsetWidth; bl.classList.add('sec-anim'); }
+    }
+  });
+
+  // Update lieu label
+  const lieuLabels = {
+    day:      '📍 Où ? (optionnel)',
+    weekend:  '📍 Destination du week-end',
+    week:     '📍 Station / Destination',
+    flexible: '📍 Zone géographique',
+  };
+  const ll = document.getElementById('lieu-label');
+  if (ll) ll.textContent = lieuLabels[type] || '📍 Lieu / Spot';
+}
+
+let durationType = null;
+let timePrefsVal = null;
+
+function setDuration(dur) {
+  durationType = dur;
+  const isEte = MODE === 'ete';
+  const cls = isEte ? 'active-ete' : 'active-hiver';
+  document.querySelectorAll('.dispo-btn[data-dur]').forEach(b => {
+    b.classList.remove('active-hiver','active-ete');
+    b.classList.toggle(cls, b.dataset.dur === dur);
+  });
+}
+
+function setTimePrefs(tp) {
+  timePrefsVal = tp;
+  const isEte = MODE === 'ete';
+  const cls = isEte ? 'active-ete' : 'active-hiver';
+  document.querySelectorAll('.dispo-btn[data-tp]').forEach(b => {
+    b.classList.remove('active-hiver','active-ete');
+    b.classList.toggle(cls, b.dataset.tp === tp);
+  });
+}
+
+function setIntensity(val) {
+  intensityVal = val;
+  const isEte = MODE === 'ete';
+  const cls = isEte ? 'active-ete' : 'active-hiver';
+  document.querySelectorAll('.intensity-btn').forEach(b => {
+    b.classList.toggle(cls, b.dataset.v === val);
+  });
+}
+
+function setGroupSize(size) {
+  groupSize = size;
+  const isEte = MODE === 'ete';
+  const cls = isEte ? 'active-ete' : 'active-hiver';
+  document.querySelectorAll('.dispo-btn[data-g]').forEach(b => {
+    b.classList.toggle(cls, b.dataset.g === size);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  SUBMIT
+// ════════════════════════════════════════════════════════════
+function submitRecherche() {
+  if (!selectedAct) { alert('Choisis une activité !'); return; }
+  localStorage.setItem('snm_activite',   selectedAct.id);
+  localStorage.setItem('snm_act_name',   selectedAct.name);
+  localStorage.setItem('snm_act_icon',   selectedAct.icon);
+  localStorage.setItem('snm_dispo_type', dispoType || 'flexible');
+  localStorage.setItem('snm_lieu',       document.getElementById('inp-lieu').value || '');
+  localStorage.setItem('snm_mode',       MODE);
+
+  // Capture les dates de disponibilité selon le type choisi
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  let dateFrom = '', dateTo = '';
+  if (dispoType === 'day')          { dateFrom = val('date-day');      dateTo = dateFrom; }
+  else if (dispoType === 'weekend') { dateFrom = val('date-wkd-from'); dateTo = val('date-wkd-to') || dateFrom; }
+  else if (dispoType === 'week')    { dateFrom = val('date-from');     dateTo = val('date-to') || dateFrom; }
+  else if (dispoType === 'flexible'){ dateFrom = val('date-flex-from'); dateTo = dateFrom; }
+  localStorage.setItem('snm_date_from', dateFrom || '');
+  localStorage.setItem('snm_date_to',   dateTo || '');
+
+  // Sauvegarde la recherche PAR SAISON (pour que le switch hiver/été retrouve la bonne)
+  const searchData = {
+    activite: selectedAct.id, act_name: selectedAct.name, act_icon: selectedAct.icon,
+    dispo_type: dispoType || 'flexible', lieu: document.getElementById('inp-lieu').value || '',
+    date_from: dateFrom || '', date_to: dateTo || '',
+  };
+  localStorage.setItem('snm_search_' + MODE, JSON.stringify(searchData));
+
+  window.location.href = 'resultats.html';
+}
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  onSeasonChange(MODE);
+  _restorePreviousSearch();
+});
+
+// ─── RESTORE PREVIOUS SEARCH ─────────────────────────────────
+function _restorePreviousSearch() {
+  const params     = new URLSearchParams(window.location.search);
+  const isRecree   = params.get('recree') === '1';
+  const prevActId  = localStorage.getItem('snm_activite');
+  const prevLieu   = localStorage.getItem('snm_lieu');
+  const prevDispo  = localStorage.getItem('snm_dispo_type');
+  const recreeSpot = localStorage.getItem('snm_recree_spot');
+
+  // ── Recréer trip flow ─────────────────────────────────────
+  if (isRecree && recreeSpot) {
+    const lieuInp = document.getElementById('inp-lieu');
+    if (lieuInp) lieuInp.value = recreeSpot;
+    const recreeMode = localStorage.getItem('snm_mode') || 'hiver';
+    onSeasonChange(recreeMode);
+    _showSearchBanner(`🔄 Données de "${recreeSpot}" pré-remplies — ajuste et relance !`, recreeMode);
+    localStorage.removeItem('snm_recree_trip_id');
+    localStorage.removeItem('snm_recree_spot');
+    return;
+  }
+
+  // ── Restaurer recherche précédente ────────────────────────
+  if (!prevActId) return; // First time, nothing to restore
+
+  // Find which category contains this activity
+  const allCats = CATALOGUE[MODE] || {};
+  let foundCat = null;
+  Object.entries(allCats).forEach(([catKey, cat]) => {
+    if (cat.acts && cat.acts.find(a => a.id === prevActId)) foundCat = catKey;
+  });
+
+  if (foundCat) {
+    selectCat(foundCat);
+    // Tick the radio
+    setTimeout(() => {
+      const radio = document.querySelector(`input[name="activite"][value="${prevActId}"]`);
+      if (radio) { radio.checked = true; onActivity(prevActId, foundCat); }
+      // Restore lieu
+      if (prevLieu) {
+        const lieuInp = document.getElementById('inp-lieu');
+        if (lieuInp) lieuInp.value = prevLieu;
+      }
+      // Restore dispo type
+      if (prevDispo) setDispoType(prevDispo);
+
+      _showSearchBanner('🔁 Recherche précédente restaurée — modifie ou relance directement.', MODE);
+    }, 100);
+  }
+}
+
+function _showSearchBanner(msg, mode) {
+  const isEte = mode === 'ete';
+  const AC    = isEte ? '#fbbf24' : '#22d3ee';
+  const banner = document.createElement('div');
+  banner.style.cssText = `position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(10,15,30,.97);border:1px solid ${AC}55;border-radius:14px;padding:.6rem 1.2rem;font-size:.75rem;font-weight:700;color:${AC};backdrop-filter:blur(14px);box-shadow:0 8px 30px rgba(0,0,0,.45);white-space:nowrap;transition:opacity .4s;`;
+  banner.textContent = msg;
+  document.body.appendChild(banner);
+  setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => banner.remove(), 400); }, 4000);
+}
+</script>
+</body>
+</html>

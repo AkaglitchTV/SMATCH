@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smatch — SnowMatch & SunMatch — Trouve ton crew d'aventure</title>
+<meta name="description" content="Smatch matche les passionnés d'aventure pour partir ensemble : ski, snowboard, surf, gravel, via ferrata et plus. Trouve le bon crew selon ton niveau, ta dispo et tes envies.">
+<meta name="theme-color" content="#020617">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smatch">
+<meta property="og:title" content="Smatch — Trouve ton crew d'aventure (ski, surf, rando, vélo…)">
+<meta property="og:description" content="Smatch matche les passionnés d'aventure pour partir ensemble : ski, snowboard, surf, gravel, via ferrata et plus. Trouve le bon crew selon ton niveau, ta dispo et tes envies.">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Smatch — Trouve ton crew d'aventure (ski, surf, rando, vélo…)">
+<meta name="twitter:description" content="Smatch matche les passionnés d'aventure pour partir ensemble : ski, snowboard, surf, gravel, via ferrata et plus. Trouve le bon crew selon ton niveau, ta dispo et tes envies.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏔️</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="trip_data.js"></script>
+<script src="store.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  @keyframes pulse-cyan  { 0%{box-shadow:0 0 0 0 rgba(34,211,238,.7)} 70%{box-shadow:0 0 0 14px rgba(34,211,238,0)} 100%{box-shadow:0 0 0 0 rgba(34,211,238,0)} }
+  @keyframes pulse-amber { 0%{box-shadow:0 0 0 0 rgba(251,191,36,.7)} 70%{box-shadow:0 0 0 14px rgba(251,191,36,0)}  100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}  }
+  @keyframes float-up    { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes modal-pop   { from{opacity:0;transform:scale(.93) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .pulse-cyan  { animation:pulse-cyan  2.2s infinite; }
+  .pulse-amber { animation:pulse-amber 2.2s infinite; }
+  .float-up    { animation:float-up .6s ease both; }
+  .float-up-2  { animation:float-up .6s .12s ease both; }
+  .float-up-3  { animation:float-up .6s .24s ease both; }
+
+  body { background:#020617; color:#f1f5f9; overflow-x:hidden; font-family:ui-sans-serif,system-ui,sans-serif; min-height:100vh; display:flex; flex-direction:column; }
+
+  /* BG */
+  #bg-layer { position:fixed;inset:0;z-index:0;transition:background 0.9s ease; }
+
+  /* LOGIN MODAL */
+  #login-modal { display:none;position:fixed;inset:0;z-index:9000;background:rgba(2,6,23,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center; }
+  #login-modal.open { display:flex; }
+  #login-modal-inner { background:rgba(10,15,30,.97);border:1px solid rgba(34,211,238,.22);border-radius:24px;width:94%;max-width:400px;box-shadow:0 40px 80px rgba(0,0,0,.7);animation:modal-pop .3s ease both; }
+  .l-input { width:100%;background:rgba(10,15,30,.8);border:1px solid rgba(71,85,105,.6);border-radius:12px;padding:11px 15px;color:#e2e8f0;font-size:.875rem;outline:none;transition:border-color .2s;font-family:inherit; }
+  .l-input:focus { border-color:rgba(34,211,238,.5); }
+  .l-input::placeholder { color:#475569; }
+  .l-tab-on  { background:rgba(34,211,238,.15);color:#22d3ee;border:1px solid rgba(34,211,238,.3); }
+  .l-tab-off { color:#94a3b8;border:1px solid transparent; }
+
+  /* TAG CARDS */
+  .tag-card { background:rgba(255,255,255,.04);border:1px solid rgba(71,85,105,.35);border-radius:14px;padding:.6rem .9rem;font-size:.72rem;font-weight:700;text-align:center;transition:all .2s ease; }
+  .tag-card-cyan  { color:#67e8f9;border-color:rgba(34,211,238,.25);background:rgba(34,211,238,.07); }
+  .tag-card-amber { color:#fcd34d;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.07); }
+
+  /* STAT BOX */
+  .stat-box { background:rgba(15,23,42,.65);border:1px solid rgba(30,41,59,.6);border-radius:18px;padding:1rem 1.2rem;text-align:center;backdrop-filter:blur(8px); }
+</style>
+<link rel="stylesheet" href="mobile.css">
+</head>
+<body data-page="accueil">
+
+<!-- BG -->
+<div id="bg-layer">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 60%,rgba(96,165,250,.07) 0%,transparent 55%),radial-gradient(ellipse at 70% 80%,rgba(34,211,238,.05) 0%,transparent 45%);"></div>
+  <svg id="svg-hiver" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:0;left:0;width:100%;height:70%;">
+    <path d="M0,320 L0,220 L120,140 L200,180 L320,80 L420,130 L520,40 L620,100 L720,20 L820,90 L920,50 L1020,120 L1120,60 L1220,110 L1320,70 L1440,130 L1440,320 Z" fill="rgba(10,20,40,.7)"/>
+    <path d="M0,320 L0,260 L100,200 L200,230 L340,160 L440,200 L560,130 L660,170 L760,110 L860,150 L960,120 L1060,160 L1160,130 L1280,170 L1380,140 L1440,170 L1440,320 Z" fill="rgba(8,16,32,.85)"/>
+    <path d="M520,40 L480,80 L560,80 Z" fill="rgba(220,240,255,.18)"/>
+    <path d="M720,20 L680,65 L760,65 Z" fill="rgba(220,240,255,.18)"/>
+    <path d="M920,50 L885,90 L955,90 Z" fill="rgba(220,240,255,.14)"/>
+  </svg>
+  <svg id="svg-ete" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:0;left:0;width:100%;height:70%;display:none;">
+    <path d="M0,320 L0,270 L100,255 L220,268 L380,245 L520,262 L680,238 L840,258 L1000,232 L1160,250 L1300,228 L1440,245 L1440,320 Z" fill="rgba(25,10,0,.75)"/>
+    <path d="M0,320 L0,295 L150,280 L320,290 L500,274 L680,286 L860,270 L1040,283 L1200,265 L1380,278 L1440,268 L1440,320 Z" fill="rgba(12,5,0,.88)"/>
+    <circle cx="1220" cy="70" r="55" fill="rgba(251,191,36,.08)"/>
+    <circle cx="1220" cy="70" r="34" fill="rgba(251,191,36,.18)"/>
+    <circle cx="1220" cy="70" r="18" fill="rgba(251,191,36,.32)"/>
+  </svg>
+</div>
+
+<!-- NAV (injected by nav.js) -->
+<div id="nav-mount"></div>
+
+<!-- MAIN -->
+<main class="relative z-10 flex-grow flex items-center justify-center px-5 py-14">
+  <div class="w-full max-w-3xl" style="background:rgba(10,15,30,.72);border:1px solid rgba(30,41,59,.6);border-radius:28px;padding:2.5rem 2rem;backdrop-filter:blur(20px);box-shadow:0 40px 80px rgba(0,0,0,.5);">
+
+    <!-- HIVER -->
+    <div id="content-hiver">
+      <div class="float-up text-5xl mb-4 text-center">⛷️❄️🏔️</div>
+      <h1 class="float-up-2 text-4xl md:text-6xl font-extrabold text-white text-center leading-tight mb-4 tracking-tight">
+        Trouve ton crew,<br>
+        <span style="background:linear-gradient(to right,#22d3ee,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">partez ensemble.</span>
+      </h1>
+      <p class="float-up-3 text-center text-slate-300 text-base md:text-lg mb-5 leading-relaxed max-w-xl mx-auto">
+        L'appli qui matche les passionnés de montagne ❄️ Ski, snow, mais aussi rando raquettes, alpinisme ou simple week-end chalet : trouve les bonnes personnes pour le même trip et la même envie de <strong class="text-cyan-300">raclette</strong> que toi.
+      </p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-8">
+        <div class="tag-card tag-card-cyan">⛷️ Ski alpin</div>
+        <div class="tag-card tag-card-cyan">🏂 Snowboard</div>
+        <div class="tag-card tag-card-cyan">🥾 Rando / Raquettes</div>
+        <div class="tag-card tag-card-cyan">🧗 Alpinisme</div>
+      </div>
+      <div class="flex justify-center mb-10">
+        <a href="recherche.html" class="inline-flex items-center gap-3 text-slate-950 font-bold text-lg px-10 py-4 rounded-full pulse-cyan group" style="background:linear-gradient(to right,#06b6d4,#3b82f6);text-decoration:none;transition:filter .2s,transform .2s;">
+          Lancer ma recherche <span class="group-hover:translate-x-1 transition-transform inline-block">🏔️</span>
+        </a>
+      </div>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="stat-box"><div class="text-2xl font-black text-cyan-400" id="stat-h-riders">4 231</div><div class="text-xs text-slate-400 mt-1">🏔️ Membres inscrits</div></div>
+        <div class="stat-box"><div class="text-2xl font-black text-cyan-400" id="stat-h-crews">287</div><div class="text-xs text-slate-400 mt-1">👥 Crews actifs</div></div>
+        <div class="stat-box"><div class="text-2xl font-black text-cyan-400">63</div><div class="text-xs text-slate-400 mt-1">🎿 Spots référencés</div></div>
+      </div>
+    </div>
+
+    <!-- ÉTÉ -->
+    <div id="content-ete" style="display:none;">
+      <div class="float-up text-5xl mb-4 text-center">🏄‍♂️☀️🌊</div>
+      <h1 class="float-up-2 text-4xl md:text-6xl font-extrabold text-white text-center leading-tight mb-4 tracking-tight">
+        Trouve ton crew,<br>
+        <span style="background:linear-gradient(to right,#fbbf24,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">partez ensemble.</span>
+      </h1>
+      <p class="float-up-3 text-center text-slate-300 text-base md:text-lg mb-5 leading-relaxed max-w-xl mx-auto">
+        L'appli qui matche les passionnés d'aventure ☀️ Surf, gravel, via ferrata, kayak ou road-trip : trouve les bonnes personnes pour le même trip et la même envie de <strong class="text-amber-300">coucher de soleil</strong> que toi.
+      </p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-8">
+        <div class="tag-card tag-card-amber">🏄 Surf trip</div>
+        <div class="tag-card tag-card-amber">🚴 Vélo / Gravel</div>
+        <div class="tag-card tag-card-amber">🧗 Via ferrata</div>
+        <div class="tag-card tag-card-amber">🛶 Kayak / Rando</div>
+      </div>
+      <div class="flex justify-center mb-10">
+        <a href="recherche.html" class="inline-flex items-center gap-3 text-slate-950 font-bold text-lg px-10 py-4 rounded-full pulse-amber group" style="background:linear-gradient(to right,#fbbf24,#f97316);text-decoration:none;transition:filter .2s,transform .2s;">
+          Lancer ma recherche <span class="group-hover:translate-x-1 transition-transform inline-block">☀️</span>
+        </a>
+      </div>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="stat-box"><div class="text-2xl font-black" style="color:#fbbf24;" id="stat-e-riders">2 847</div><div class="text-xs text-slate-400 mt-1">🌴 Membres inscrits</div></div>
+        <div class="stat-box"><div class="text-2xl font-black" style="color:#fbbf24;" id="stat-e-crews">134</div><div class="text-xs text-slate-400 mt-1">👥 Crews actifs</div></div>
+        <div class="stat-box"><div class="text-2xl font-black" style="color:#fbbf24;">48</div><div class="text-xs text-slate-400 mt-1">🌊 Spots référencés</div></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer class="relative z-10 text-center py-5 text-xs text-slate-600 border-t border-slate-900">
+  &copy; 2026 Smatch — SnowMatch & SunMatch Inc. — <span id="footer-txt">Glissez prudemment ⛷️</span>
+</footer>
+
+<!-- ===== MODAL CONNEXION ===== -->
+<div id="login-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div id="login-modal-inner">
+  <div class="px-7 pt-7 pb-5 border-b border-slate-800">
+    <div class="flex items-start justify-between">
+      <div>
+        <div id="modal-logo" class="text-lg font-black mb-1" style="background:linear-gradient(to right,#22d3ee,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SN❄️WMATCH</div>
+        <h2 class="text-xl font-extrabold text-white" id="modal-title">Bon retour ! 👋</h2>
+        <p class="text-xs text-slate-500 mt-0.5" id="modal-sub">Connecte-toi pour rejoindre ton crew.</p>
+      </div>
+      <button onclick="document.getElementById('login-modal').classList.remove('open')" class="text-slate-500 hover:text-white transition-colors text-lg mt-1" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
+  <div class="px-7 py-6 space-y-4">
+    <div class="flex gap-1 bg-slate-950/60 rounded-xl p-1">
+      <button id="tab-login"  onclick="setTab('login')"  class="flex-1 text-xs font-bold py-2 rounded-lg l-tab-on  transition-all">Se connecter</button>
+      <button id="tab-signup" onclick="setTab('signup')" class="flex-1 text-xs font-bold py-2 rounded-lg l-tab-off transition-all">Créer un compte</button>
+    </div>
+    <div id="field-pseudo" class="hidden">
+      <label class="text-xs text-slate-400 font-semibold mb-1.5 block"><i class="fa-solid fa-at mr-1.5 text-cyan-400/70"></i>Pseudo de rider</label>
+      <input id="inp-pseudo" type="text" placeholder="Ex: SurferDu64 🏄" class="l-input">
+    </div>
+    <div>
+      <label class="text-xs text-slate-400 font-semibold mb-1.5 block"><i class="fa-solid fa-envelope mr-1.5 text-cyan-400/70"></i>Email</label>
+      <input id="inp-email" type="email" placeholder="ton@email.com" class="l-input">
+    </div>
+    <div>
+      <label class="text-xs text-slate-400 font-semibold mb-1.5 block"><i class="fa-solid fa-lock mr-1.5 text-cyan-400/70"></i>Mot de passe</label>
+      <div class="relative">
+        <input id="inp-pw" type="password" placeholder="••••••••" class="l-input" style="padding-right:42px;">
+        <button onclick="togglePw()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-sm transition-colors"><i id="pw-eye" class="fa-solid fa-eye"></i></button>
+      </div>
+    </div>
+    <div id="field-forgot" class="text-right">
+      <button class="text-xs text-slate-500 hover:text-cyan-400 transition-colors">Mot de passe oublié ?</button>
+    </div>
+    <button onclick="handleAuth()" class="w-full font-bold py-3.5 rounded-xl transition-all text-sm shadow-lg" style="background:linear-gradient(to right,#06b6d4,#3b82f6);color:#020617;" id="auth-cta">
+      <i class="fa-solid fa-bolt mr-1.5"></i>Se connecter
+    </button>
+    <div class="flex items-center gap-3 py-1"><div class="flex-1 h-px bg-slate-800"></div><span class="text-xs text-slate-600 font-semibold">ou</span><div class="flex-1 h-px bg-slate-800"></div></div>
+    <div class="grid grid-cols-2 gap-3">
+      <button class="flex items-center justify-center gap-2 bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-300 text-xs font-semibold py-2.5 rounded-xl transition-all">🌐 Google</button>
+      <button class="flex items-center justify-center gap-2 bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-300 text-xs font-semibold py-2.5 rounded-xl transition-all"><i class="fa-brands fa-apple text-white"></i> Apple</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+// Season change callback from nav.js
+function onSeasonChange(mode) {
+  const isEte = mode === 'ete';
+  document.getElementById('content-hiver').style.display = isEte ? 'none' : '';
+  document.getElementById('content-ete').style.display   = isEte ? '' : 'none';
+  document.getElementById('footer-txt').textContent = isEte ? 'Vibez prudemment 🌊' : 'Glissez prudemment ⛷️';
+  document.getElementById('modal-logo').textContent = isEte ? 'S☀️NMATCH' : 'SN❄️WMATCH';
+  document.getElementById('modal-logo').style.background = isEte
+    ? 'linear-gradient(to right,#fbbf24,#f97316)'
+    : 'linear-gradient(to right,#22d3ee,#3b82f6)';
+}
+
+// Apply on init
+document.addEventListener('DOMContentLoaded', () => {
+  const mode = localStorage.getItem('snm_mode') || 'hiver';
+  onSeasonChange(mode);
+});
+
+// Login modal
+let authTab = 'login';
+function setTab(tab) {
+  authTab = tab;
+  const isSignup = tab === 'signup';
+  document.getElementById('tab-login').className  = isSignup ? 'flex-1 text-xs font-bold py-2 rounded-lg l-tab-off transition-all' : 'flex-1 text-xs font-bold py-2 rounded-lg l-tab-on transition-all';
+  document.getElementById('tab-signup').className = isSignup ? 'flex-1 text-xs font-bold py-2 rounded-lg l-tab-on transition-all'  : 'flex-1 text-xs font-bold py-2 rounded-lg l-tab-off transition-all';
+  document.getElementById('field-pseudo').classList.toggle('hidden', !isSignup);
+  document.getElementById('field-forgot').classList.toggle('hidden', isSignup);
+  document.getElementById('modal-title').textContent = isSignup ? 'Rejoins le crew ! 🏔️' : 'Bon retour ! 👋';
+  document.getElementById('modal-sub').textContent   = isSignup ? 'Crée ton profil en 30 secondes.' : 'Connecte-toi pour rejoindre ton crew.';
+  document.getElementById('auth-cta').innerHTML = isSignup ? '<i class="fa-solid fa-rocket mr-1.5"></i>Créer mon compte' : '<i class="fa-solid fa-bolt mr-1.5"></i>Se connecter';
+}
+function togglePw() {
+  const i = document.getElementById('inp-pw');
+  const e = document.getElementById('pw-eye');
+  i.type = i.type === 'password' ? 'text' : 'password';
+  e.className = i.type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+}
+function handleAuth() {
+  const pseudo = document.getElementById('inp-pseudo')?.value.trim() || 'RiderDu74';
+  navLoginSuccess(authTab === 'signup' ? pseudo : 'RiderDu74');
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.getElementById('login-modal').classList.remove('open'); });
+
+// ─── LIVE COUNTERS — effet rouleau casino 🎰 ───────────────────
+(function() {
+  let hRiders = parseInt(sessionStorage.getItem('acc_hr') || '4231');
+  let hCrews  = parseInt(sessionStorage.getItem('acc_hc') || '287');
+  let eRiders = parseInt(sessionStorage.getItem('acc_er') || '2847');
+  let eCrews  = parseInt(sessionStorage.getItem('acc_ec') || '134');
+
+  // Inject rolling-digit CSS once
+  if (!document.getElementById('roll-css')) {
+    const s = document.createElement('style');
+    s.id = 'roll-css';
+    s.textContent = `
+      .roll { display:inline-flex; line-height:1; vertical-align:baseline; }
+      .roll-col { display:inline-block; overflow:hidden; height:1em; position:relative; }
+      .roll-col.sep { width:.28em; } /* espace milliers */
+      .roll-strip {
+        display:flex; flex-direction:column;
+        transition:transform .85s cubic-bezier(.16,1,.3,1);
+        will-change:transform;
+      }
+      .roll-strip > span { height:1em; display:flex; align-items:center; justify-content:center; }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // Build the digit strip 0-9 (repeated for smooth wrap) for a column
+  function buildStrip() {
+    const strip = document.createElement('span');
+    strip.className = 'roll-strip';
+    // Two full 0-9 cycles so a digit can roll forward past 9→0 smoothly
+    for (let cycle = 0; cycle < 2; cycle++) {
+      for (let d = 0; d <= 9; d++) {
+        const sp = document.createElement('span');
+        sp.textContent = d;
+        strip.appendChild(sp);
+      }
+    }
+    return strip;
+  }
+
+  // Render a number into an element as rolling columns
+  function renderRoll(el, value) {
+    if (!el) return;
+    const str = String(value);
+    // Build display with thousands separator (space)
+    const withSep = value >= 1000
+      ? str.slice(0, str.length - 3) + ' ' + str.slice(str.length - 3)
+      : str;
+
+    // Build container if structure changed (different length)
+    if (el._rollLen !== withSep.length) {
+      el.innerHTML = '';
+      const wrap = document.createElement('span');
+      wrap.className = 'roll';
+      el._cols = [];
+      for (const ch of withSep) {
+        if (ch === ' ') {
+          const sep = document.createElement('span');
+          sep.className = 'roll-col sep';
+          wrap.appendChild(sep);
+          el._cols.push(null);
+        } else {
+          const col = document.createElement('span');
+          col.className = 'roll-col';
+          const strip = buildStrip();
+          col.appendChild(strip);
+          wrap.appendChild(col);
+          el._cols.push(strip);
+        }
+      }
+      el.appendChild(wrap);
+      el._rollLen = withSep.length;
+      el._prevDigits = withSep.split('').map(() => 0);
+    }
+
+    // Animate each column to its target digit
+    let digitIdx = 0;
+    withSep.split('').forEach((ch, i) => {
+      const strip = el._cols[i];
+      if (!strip) return; // separator
+      const target = parseInt(ch);
+      const prev = el._prevDigits[i] ?? 0;
+      // Roll forward: if target < prev, go to second cycle (target+10) for forward spin
+      const pos = target >= prev ? target : target + 10;
+      strip.style.transform = `translateY(-${pos}em)`;
+      // After transition, normalize back to first cycle so next roll is clean
+      setTimeout(() => {
+        strip.style.transition = 'none';
+        strip.style.transform = `translateY(-${target}em)`;
+        void strip.offsetHeight;
+        strip.style.transition = '';
+      }, 900);
+      el._prevDigits[i] = target;
+    });
+  }
+
+  function tick() {
+    // Réaliste : riders montent souvent par petits paquets, crews bien plus lentement
+    if (Math.random() < 0.78) hRiders += Math.floor(Math.random()*3)+1;
+    if (Math.random() < 0.14) hCrews  += 1;
+    if (Math.random() < 0.62) eRiders += Math.floor(Math.random()*3)+1;
+    if (Math.random() < 0.11) eCrews  += 1;
+    sessionStorage.setItem('acc_hr', hRiders); sessionStorage.setItem('acc_hc', hCrews);
+    sessionStorage.setItem('acc_er', eRiders); sessionStorage.setItem('acc_ec', eCrews);
+    renderRoll(document.getElementById('stat-h-riders'), hRiders);
+    renderRoll(document.getElementById('stat-h-crews'),  hCrews);
+    renderRoll(document.getElementById('stat-e-riders'), eRiders);
+    renderRoll(document.getElementById('stat-e-crews'),  eCrews);
+    setTimeout(tick, 1600 + Math.random()*2200);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Initial render (digits roll up from 0 on load — effet machine à sous)
+    renderRoll(document.getElementById('stat-h-riders'), hRiders);
+    renderRoll(document.getElementById('stat-h-crews'),  hCrews);
+    renderRoll(document.getElementById('stat-e-riders'), eRiders);
+    renderRoll(document.getElementById('stat-e-crews'),  eCrews);
+    setTimeout(tick, 1400 + Math.random()*900);
+  });
+})();
+</script>
+</body>
+</html>
