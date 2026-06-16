@@ -2212,7 +2212,7 @@ function navCreateValidationRequest(crew, who) {
     const proposer = members.length ? dir[members[Math.floor(Math.random()*members.length)]].name : 'Un membre';
     const compat = 80 + Math.floor(Math.random()*18);
     reqs.unshift({
-      id: 'val_' + Date.now(), crewId: crew.id, crewName: crew.name, mode: crew.mode,
+      id: 'val_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6), crewId: crew.id, crewName: crew.name, mode: crew.mode,
       newcomer: who.n, icon: who.e, sport: who.a, compat, proposer, time: Date.now(),
     });
     localStorage.setItem('snm_validation_reqs', JSON.stringify(reqs.slice(0,20)));
@@ -2281,7 +2281,7 @@ function navAddIncomingMatch(who, compat, mode) {
     const matches = JSON.parse(localStorage.getItem('snm_incoming_matches') || '[]');
     if (matches.some(m => m.name === who.n)) return;
     matches.unshift({
-      key: 'inc_' + Date.now(), name: who.n, icon: who.e, sport: who.a,
+      key: 'inc_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5), name: who.n, icon: who.e, sport: who.a,
       compat: compat, mode: mode, isNew: true,
       spot: localStorage.getItem('snm_lieu') || '',
       dispo: 'Tes dates', time: Date.now(),

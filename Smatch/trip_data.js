@@ -601,6 +601,30 @@ if (typeof window !== 'undefined') {
  * crédible (acceptation auto + réponses de négo), prêt à brancher un vrai
  * backend plus tard sur la même structure.
  */
+// Vérifie si une personne (par clé ou nom) est déjà membre d'un de tes crews actifs
+function _smatchAlreadyInActiveCrew(key, name) {
+  try {
+    const dashboards = JSON.parse(localStorage.getItem('snm_dashboards') || '[]');
+    const fresh = JSON.parse(localStorage.getItem('snm_fresh_trips') || '{}');
+    const now = Date.now();
+    for (const d of dashboards) {
+      if (new Date(d.dateEnd) <= now && !d.fromMerge) continue; // souvenir → on ignore
+      let trip = fresh[d.id] || (typeof SMATCH_TRIPS !== 'undefined' ? SMATCH_TRIPS[d.id] : null);
+      if (!trip || !trip.memberKeys) continue;
+      // Match par clé directe
+      if (trip.memberKeys.includes(key)) return true;
+      // Match par nom (clés différentes mais même personne)
+      if (name) {
+        const dir = (typeof smatchAllMembers === 'function') ? smatchAllMembers() : SMATCH_MEMBERS;
+        for (const k of trip.memberKeys) {
+          if (dir[k] && dir[k].name === name) return true;
+        }
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
 const SmatchMerge = {
   _key: 'snm_merge_requests',
 
@@ -615,9 +639,11 @@ const SmatchMerge = {
   send(profile) {
     const list = this.all();
     if (list.find(r => r.key === profile.key && r.status !== 'rejected')) return null;
+    // Déjà dans un de nos crews actifs ? → pas de nouvelle invitation
+    if (_smatchAlreadyInActiveCrew(profile.key, profile.name)) return null;
     const mode = localStorage.getItem('snm_mode') || 'hiver';
     const req = {
-      id: 'mr_' + Date.now(),
+      id: 'mr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
       key: profile.key,
       from: profile.name,
       icon: profile.icon || (mode === 'ete' ? '🏄' : '🏂'),
