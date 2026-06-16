@@ -433,12 +433,19 @@ const PROFILES_ETE = [
 // ═══════════════════════════════════════════════════════════════════════════
 const BASE_POOL = isEte ? PROFILES_ETE : PROFILES_HIVER;
 // Matchs entrants (générés par le simulateur de vie) — ajoutés en tête
+function _ageForRange(range) {
+  if (range === '18-25') return 18 + Math.floor(Math.random()*8);
+  if (range === '26-35') return 26 + Math.floor(Math.random()*10);
+  if (range === '36-45') return 36 + Math.floor(Math.random()*10);
+  if (range === '46+')   return 46 + Math.floor(Math.random()*15);
+  return 20 + Math.floor(Math.random()*15);
+}
 function _getIncomingMatches() {
   try {
     const inc = JSON.parse(localStorage.getItem('snm_incoming_matches') || '[]');
     return inc.filter(m => m.mode === MODE).map(m => ({
       key: m.key, name: m.name, icon: m.icon || (isEte?'🏄':'🏂'),
-      age: 20 + Math.floor(Math.random()*15), city: m.spot || (isEte?'Hossegor':'Annecy'),
+      age: _ageForRange(localStorage.getItem('snm_age_range') || 'all'), city: m.spot || (isEte?'Hossegor':'Annecy'),
       sport: m.sport || (isEte?'Surf':'Snowboard'), level: 'Confirmé', intensity: 'Sportif',
       budget: 'Medium', dispo_type: 'week', dispo: m.dispo || 'Tes dates',
       compat: m.compat || 88, compat_d: { niveau: 88, dispo: 95, intensite: 85, budget: 84 },
@@ -452,6 +459,15 @@ function _getIncomingMatches() {
 const POOL = [..._getIncomingMatches(), ...BASE_POOL];
 const ALL_DATA = {};
 [...PROFILES_HIVER,...PROFILES_ETE,...POOL].forEach(m => ALL_DATA[m.key] = m);
+
+// Tranche d'âge choisie à la recherche → filtre les résultats
+const AGE_RANGE = localStorage.getItem('snm_age_range') || 'all';
+function _ageInRange(age, range) {
+  if (!range || range === 'all') return true;
+  if (range === '46+') return age >= 46;
+  const [lo, hi] = range.split('-').map(Number);
+  return age >= lo && age <= hi;
+}
 
 let activeFilter = 'all';
 let mergedSet = new Set();    // keys of sent merge requests
@@ -508,7 +524,9 @@ function buildHeader() {
   document.getElementById('dispo-pill').textContent = dispoTxt;
   if (LIEU) document.getElementById('lieu-pill').textContent = `📍 ${LIEU}`;
   document.getElementById('match-title').textContent = isEte ? `Tes matchs ${ACT_ICON} ☀️` : `Tes matchs ${ACT_ICON} ⚡`;
-  document.getElementById('match-sub').textContent = `${POOL.length} profils correspondant à tes préférences — ${isEte?'trip été':'session hiver'}.`;
+  const ageLbl = AGE_RANGE && AGE_RANGE !== 'all' ? ` · 🎂 ${AGE_RANGE} ans` : '';
+  const shown = POOL.filter(m => _ageInRange(m.age, AGE_RANGE)).length;
+  document.getElementById('match-sub').textContent = `${shown} profils correspondant à tes préférences — ${isEte?'trip été':'session hiver'}${ageLbl}.`;
   document.getElementById('stat-top').textContent = POOL[0].compat + '%';
   document.getElementById('stat-nb').textContent  = POOL.length;
 }
@@ -517,10 +535,12 @@ function buildHeader() {
 //  FILTRES — calcul dynamique des compteurs
 // ═══════════════════════════════════════════════════════════════════════════
 function countFilter(f) {
-  if (f === 'all') return POOL.length;
+  if (f === 'all') return POOL.filter(m => _ageInRange(m.age, AGE_RANGE)).length;
   return POOL.filter(m => matchFilter(m, f)).length;
 }
 function matchFilter(m, f) {
+  // Filtre transversal par tranche d'âge (toujours appliqué)
+  if (!_ageInRange(m.age, AGE_RANGE)) return false;
   if (f === 'all')     return true;
   if (f === 'level')   return m.level     === USER_PREFS.level;
   if (f === 'dispo')   return m.dispo_type === USER_PREFS.dispo_type;
@@ -793,14 +813,41 @@ function sendMerge(key, fromModal = false) {
 }
 
 function mergeAll() {
-  const unsent = POOL.filter(m => !mergedSet.has(m.key));
+  const unsent = POOL.filter(m => !mergedSet.has(m.key) && _ageInRange(m.age, AGE_RANGE));
   if (!unsent.length) { showToast('✓', 'Tout le monde a déjà reçu ta demande !', '#34d399'); return; }
-  unsent.forEach(m => mergedSet.add(m.key));
+  let sentCount = 0;
+  unsent.forEach(m => {
+    mergedSet.add(m.key);
+    // Enregistre le membre (pour les clés non-annuaire) puis envoie une VRAIE demande
+    if (typeof smatchRegisterMember === 'function' && m.key && m.key.length > 1) {
+      smatchRegisterMember(m.key, m);
+    }
+    if (typeof SmatchMerge !== 'undefined') {
+      const sent = SmatchMerge.send({
+        key: m.key, name: m.name, sport: m.sport || '', icon: m.icon || (isEte?'🏄':'🏂'),
+        spot: m.city || localStorage.getItem('snm_lieu') || '', compat: m.compat || 85,
+      });
+      if (sent) {
+        sentCount++;
+        // Acceptation simulée échelonnée (pour ne pas tout accepter d'un coup)
+        const delay = 2500 + Math.random() * 4000;
+        setTimeout(() => {
+          const r = SmatchMerge.get(sent.id);
+          if (r && r.status === 'pending') {
+            SmatchMerge.update(sent.id, { status: 'accepted', time: 'À l\'instant' });
+            if (typeof navPushNotif === 'function') navPushNotif('merge', `${m.name} a accepté ta demande ⚡`, 'Discutez pour valider votre trip ensemble', 'demandes');
+            if (typeof navRender === 'function') navRender();
+          }
+        }, delay);
+      }
+    }
+  });
   document.getElementById('stat-sent').textContent = mergedSet.size;
   document.getElementById('btn-merge-all').innerHTML = '<i class="fa-solid fa-check"></i> Demandes envoyées ✓';
   document.getElementById('btn-merge-all').className = 'inline-flex items-center gap-3 font-bold px-8 py-3.5 rounded-xl transition-all btn-merge-sent';
   applyFilter(activeFilter); // re-render
-  showToast('🎉', `${unsent.length} demande${unsent.length>1?'s':''} de merge envoyée${unsent.length>1?'s':''} !`, isEte?'#fbbf24':'#22d3ee');
+  if (typeof navRender === 'function') navRender();
+  showToast('🎉', `${sentCount} demande${sentCount>1?'s':''} de merge envoyée${sentCount>1?'s':''} !`, isEte?'#fbbf24':'#22d3ee');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

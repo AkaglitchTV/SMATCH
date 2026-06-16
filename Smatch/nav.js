@@ -22,6 +22,17 @@ function navSaveState() {
   localStorage.setItem('snm_status', NAV_STATE.status);
 }
 
+// Le dernier dashboard visité (snm_active_trip_id), sinon le 1er de la saison courante
+function _navLatestDashboard(actifs) {
+  if (!actifs || !actifs.length) return null;
+  const activeId = localStorage.getItem('snm_active_trip_id');
+  if (activeId) {
+    const found = actifs.find(d => d.id === activeId);
+    if (found) return found;
+  }
+  return actifs.find(d => d.mode === NAV_STATE.mode) || actifs[0];
+}
+
 function navIsSouvenir(d) {
   // Un crew issu d'un merge reste actif (sauf s'il a été explicitement archivé)
   if (d.fromMerge && !d.archived) return false;
@@ -420,17 +431,24 @@ function navInjectCSS() {
 // ─── Barre de navigation mobile (bas d'écran) ────────────────────────
 function navBottomBar(page, AC) {
   const isEte = NAV_STATE.mode === 'ete';
-  const item = (label, icon, active, onclick) => `
-    <button onclick="${onclick}" aria-label="${label}" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;padding:.4rem 0;min-height:52px;color:${active?AC:'#64748b'};transition:color .15s;">
-      <i class="fa-solid ${icon}" style="font-size:1.05rem;"></i>
+  // Compteurs pour les pastilles rouges
+  const pendingMerge = (typeof SmatchMerge !== 'undefined')
+    ? SmatchMerge.all().filter(r => r.status === 'pending' || r.status === 'accepted' || r.status === 'negotiating').length : 0;
+  const pendingValid = (typeof navGetValidationReqs === 'function') ? navGetValidationReqs().length : 0;
+  const item = (label, icon, active, onclick, dot) => `
+    <button onclick="${onclick}" aria-label="${label}" style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;padding:.4rem 0;min-height:52px;color:${active?AC:'#64748b'};transition:color .15s;">
+      <div style="position:relative;">
+        <i class="fa-solid ${icon}" style="font-size:1.05rem;"></i>
+        ${dot ? `<span style="position:absolute;top:-4px;right:-7px;min-width:15px;height:15px;padding:0 3px;box-sizing:border-box;background:#ef4444;color:#fff;font-size:.52rem;font-weight:900;border-radius:9999px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(2,6,23,.95);">${dot>9?'9+':dot}</span>` : ''}
+      </div>
       <span style="font-size:.6rem;font-weight:${active?'800':'600'};">${label}</span>
     </button>`;
 
   return `
   <nav id="snm-bottom-nav" aria-label="Navigation principale mobile">
-    ${item('Accueil','fa-house-chimney', page==='accueil', "window.location.href='accueil.html'")}
-    ${item('Matchs','fa-fire', page==='matchs', "navOpenSheet('matchs')")}
-    ${item('Crews','fa-people-group', page==='dashboard', "navOpenSheet('crews')")}
+    ${item('Accueil','fa-house-chimney', page==='accueil', "window.location.href='accueil.html'", 0)}
+    ${item('Matchs','fa-fire', page==='matchs', "navOpenSheet('matchs')", pendingMerge)}
+    ${item('Crews','fa-people-group', page==='dashboard', "navOpenSheet('crews')", pendingValid)}
   </nav>`;
 }
 
@@ -463,7 +481,7 @@ function navOpenSheet(which) {
   let title, content;
   if (which === 'matchs') {
     const pending = (localStorage.getItem('snm_setting_notifs_merge')!=='0' && localStorage.getItem('snm_setting_notif_matchs')!=='0')
-      ? navGetMergeRequests().filter(r=>r.status==='pending').length : 0;
+      ? navGetMergeRequests().filter(r=>r.status==='pending'||r.status==='accepted'||r.status==='negotiating').length : 0;
     title = '🔥 Mes Matchs';
     content =
       row('fa-magnifying-glass','Nouvelle recherche','Lancer une recherche de crew', "navBottomGo('recherche.html')") +
@@ -474,7 +492,7 @@ function navOpenSheet(which) {
     const now = Date.now();
     const actifs = dbs.filter(d => !navIsSouvenir(d));
     const souvenirs = dbs.filter(d => navIsSouvenir(d));
-    const latest = actifs.find(d => d.mode === NAV_STATE.mode) || actifs[0];
+    const latest = _navLatestDashboard(actifs);
     const dRow = (d) => row(
       d.mode==='ete'?'fa-sun':'fa-snowflake',
       d.name,
@@ -483,7 +501,7 @@ function navOpenSheet(which) {
     );
     title = '👥 Mes Crews';
     let c = '';
-    if (latest) c += row('fa-bolt','Dashboard actif', isEte?'SunMatch — Été ☀️':'SnowMatch — Hiver ❄️', `navGoToDashboard('${latest.id}','${latest.mode}','${latest.url}')`);
+    if (latest) c += row('fa-bolt','Dashboard actif', `${latest.name} · ${latest.mode==='ete'?'Été ☀️':'Hiver ❄️'}`, `navGoToDashboard('${latest.id}','${latest.mode}','${latest.url}')`);
     if (actifs.length) c += `<div style="padding:.5rem 1.1rem .2rem;font-size:.6rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;">🟢 Actifs</div>` + actifs.map(dRow).join('');
     if (souvenirs.length) c += `<div style="padding:.5rem 1.1rem .2rem;font-size:.6rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;">📸 Souvenirs</div>` + souvenirs.map(dRow).join('');
     content = c || '<div style="padding:2rem;text-align:center;color:#334155;font-size:.85rem;">Aucun crew pour le moment</div>';
@@ -529,9 +547,9 @@ function navRender() {
   const pill = (label, icon, href, active) =>
     `<a href="${href}" class="snm-pill ${active?'snm-pill-on':'snm-pill-off'}" style="${active?`background:${ACB};border-color:${ACBD};color:${AC};`:''}" style="text-decoration:none;"><i class="fa-solid ${icon}"></i>${label}</a>`;
 
-  // Merge badge
+  // Merge badge — toute demande qui demande ton attention
   const notifsOn = (localStorage.getItem('snm_setting_notifs_merge') !== '0') && (localStorage.getItem('snm_setting_notif_matchs') !== '0');
-  const pending = notifsOn ? navGetMergeRequests().filter(r=>r.status==='pending').length : 0;
+  const pending = notifsOn ? navGetMergeRequests().filter(r=>r.status==='pending'||r.status==='accepted'||r.status==='negotiating').length : 0;
   const badge   = pending ? `<span style="background:#ef4444;color:#fff;font-size:.58rem;font-weight:900;padding:1px 5px;border-radius:9999px;margin-left:2px;">${pending}</span>` : '';
 
   // Matchs dropdown
@@ -562,11 +580,11 @@ function navRender() {
   const now   = Date.now();
   const actifs    = dbs.filter(d => !navIsSouvenir(d));
   const souvenirs = dbs.filter(d => navIsSouvenir(d));
-  const latestActive = actifs.find(d => d.mode === m.mode) || actifs[0];
+  const latestActive = _navLatestDashboard(actifs);
   const activeDash = latestActive ? latestActive.url : (isEte ? 'dashboard_ete.html?trip=de1' : 'dashboard_hiver.html?trip=dh1');
   const activeId   = latestActive ? latestActive.id  : (isEte ? 'de1' : 'dh1');
   const activeMode = latestActive ? latestActive.mode : m.mode;
-  const activeModeLabel = activeMode === 'ete' ? 'SunMatch — Été ☀️' : 'SnowMatch — Hiver ❄️';
+  const activeModeLabel = latestActive ? `${latestActive.name} · ${activeMode === 'ete' ? 'Été ☀️' : 'Hiver ❄️'}` : (activeMode === 'ete' ? 'SunMatch — Été ☀️' : 'SnowMatch — Hiver ❄️');
 
   const dbBtn = (d, isSouvenir) => {
     const isAct = d.mode===m.mode && !navIsSouvenir(d);
@@ -1837,10 +1855,28 @@ function navViewMemberProfile(name) {
       return;
     }
   }
-  // 2. Sinon → fiche complète depuis l'annuaire centralisé SMATCH_MEMBERS
-  const dir = (typeof window !== 'undefined' && window.SMATCH_MEMBERS) ? window.SMATCH_MEMBERS : {};
-  const mkey = (typeof window !== 'undefined' && window.smatchMemberKeyByName) ? window.smatchMemberKeyByName(name) : null;
-  const m = mkey ? dir[mkey] : null;
+  // 2. Sinon → fiche depuis l'annuaire COMPLET (base + enregistrés + entrants)
+  const dir = (typeof smatchAllMembers === 'function') ? smatchAllMembers() : ((typeof window !== 'undefined' && window.SMATCH_MEMBERS) ? window.SMATCH_MEMBERS : {});
+  let mkey = (typeof window !== 'undefined' && window.smatchMemberKeyByName) ? window.smatchMemberKeyByName(name) : null;
+  let m = mkey ? dir[mkey] : null;
+  // Cherche aussi dans tout l'annuaire par nom (clés inc_/val_ non couvertes par memberKeyByName)
+  if (!m) {
+    const foundKey = Object.keys(dir).find(k => dir[k] && dir[k].name === name);
+    if (foundKey) { mkey = foundKey; m = dir[foundKey]; }
+  }
+  // Sinon, cherche dans les matchs entrants (snm_incoming_matches)
+  if (!m) {
+    try {
+      const inc = JSON.parse(localStorage.getItem('snm_incoming_matches') || '[]').find(x => x.name === name);
+      if (inc) {
+        mkey = inc.key;
+        m = { name: inc.name, age: 20+Math.floor(Math.random()*15), city: inc.spot||'', sport: inc.sport||'', level: 'Confirmé',
+          color: inc.mode==='ete'?'from-amber-400 to-orange-500':'from-cyan-400 to-blue-600', tc:'text-slate-950',
+          emoji: inc.icon||'', kiffs: [], bio: 'Nouveau rider qui correspond à tes critères !',
+          compat: inc.compat||85, rating: 4.6, rCnt: 8, comments: [] };
+      }
+    } catch (e) {}
+  }
   const conv = navGetConversations().find(c => c.name === name);
   const AC = NAV_STATE.mode === 'ete' ? '#fbbf24' : '#22d3ee';
   const ACB = NAV_STATE.mode === 'ete' ? 'rgba(251,191,36,.1)' : 'rgba(34,211,238,.1)';
@@ -1883,14 +1919,18 @@ function navViewMemberProfile(name) {
         </div>
       </div>`;
   } else {
-    // Fiche minimale (membre vraiment inconnu — ne devrait pas arriver)
+    // Fiche allégée (infos limitées) — mais on garde Merger + Message
+    const safeName = name.replace(/'/g,"\\'");
     div.innerHTML = `
       <div class="snm-modal-box" style="max-width:340px;border:1px solid ${AC}28;">
         <div style="padding:1.6rem 1.4rem;text-align:center;">
-          <div style="width:72px;height:72px;border-radius:20px;margin:0 auto 1rem;font-weight:900;color:#020617;display:flex;align-items:center;justify-content:center;font-size:2rem;" class="bg-gradient-to-br ${color}">${avatar}</div>
+          <div style="width:72px;height:72px;border-radius:20px;margin:0 auto 1rem;font-weight:900;color:#020617;display:flex;align-items:center;justify-content:center;font-size:2rem;" class="bg-gradient-to-br ${color}">${(name[0]||'?').toUpperCase()}</div>
           <div style="font-size:1.2rem;font-weight:800;color:#fff;margin-bottom:.3rem;">${name} ${conv?conv.emoji:''}</div>
           <div style="font-size:.72rem;color:#4ade80;margin-bottom:1.3rem;">● En ligne</div>
-          <button onclick="document.getElementById('snm-mini-profile').remove()" style="width:100%;background:rgba(30,41,59,.65);border:1px solid rgba(71,85,105,.4);color:#94a3b8;font-weight:700;font-size:.8rem;padding:.65rem;border-radius:12px;cursor:pointer;" onmouseenter="this.style.background='rgba(30,41,59,.9)'" onmouseleave="this.style.background='rgba(30,41,59,.65)'">Fermer</button>
+          <div style="display:flex;gap:.6rem;">
+            <button onclick="navMergeFromProfile('${safeName}','${mkey||('name_'+name)}')" style="flex:1.5;background:linear-gradient(135deg,${AC},${AC}cc);color:#020617;font-weight:800;font-size:.8rem;padding:.7rem;border-radius:12px;border:none;cursor:pointer;"><i class="fa-solid fa-bolt"></i> Merger</button>
+            <button onclick="document.getElementById('snm-mini-profile').remove();navOpenConvWith('${safeName}','${(name[0]||'?').toUpperCase()}','${color}','${conv?conv.emoji:''}')" style="flex:1;background:rgba(30,41,59,.65);border:1px solid rgba(71,85,105,.4);color:#cbd5e1;font-weight:700;font-size:.8rem;padding:.7rem;border-radius:12px;cursor:pointer;"><i class="fa-solid fa-message"></i> Message</button>
+          </div>
         </div>
       </div>`;
   }
@@ -1901,9 +1941,13 @@ function navViewMemberProfile(name) {
 function navMergeFromProfile(name, mkey) {
   if (typeof SmatchMerge === 'undefined') return;
   const dir = (typeof smatchAllMembers === 'function') ? smatchAllMembers() : (window.SMATCH_MEMBERS||{});
-  const m = dir[mkey];
+  let m = dir[mkey];
+  // Clé de secours "name_X" → on fabrique une clé stable à partir du nom
+  if (!m && mkey && mkey.indexOf('name_') === 0) {
+    mkey = 'p_' + name.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12);
+  }
   // Déjà une demande en cours ?
-  const existing = SmatchMerge.all().find(r => r.key === mkey && r.status !== 'rejected' && r.status !== 'left');
+  const existing = SmatchMerge.all().find(r => (r.key === mkey || r.from === name) && r.status !== 'rejected' && r.status !== 'left');
   if (existing) {
     if (typeof showToast === 'function') showToast('⏳ Demande déjà envoyée à ' + name);
     const mp = document.getElementById('snm-mini-profile'); if (mp) mp.remove();
@@ -2168,7 +2212,7 @@ function navCreateValidationRequest(crew, who) {
     const proposer = members.length ? dir[members[Math.floor(Math.random()*members.length)]].name : 'Un membre';
     const compat = 80 + Math.floor(Math.random()*18);
     reqs.unshift({
-      id: 'val_' + Date.now(), crewId: crew.id, crewName: crew.name, mode: crew.mode,
+      id: 'val_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6), crewId: crew.id, crewName: crew.name, mode: crew.mode,
       newcomer: who.n, icon: who.e, sport: who.a, compat, proposer, time: Date.now(),
     });
     localStorage.setItem('snm_validation_reqs', JSON.stringify(reqs.slice(0,20)));
@@ -2237,7 +2281,7 @@ function navAddIncomingMatch(who, compat, mode) {
     const matches = JSON.parse(localStorage.getItem('snm_incoming_matches') || '[]');
     if (matches.some(m => m.name === who.n)) return;
     matches.unshift({
-      key: 'inc_' + Date.now(), name: who.n, icon: who.e, sport: who.a,
+      key: 'inc_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5), name: who.n, icon: who.e, sport: who.a,
       compat: compat, mode: mode, isNew: true,
       spot: localStorage.getItem('snm_lieu') || '',
       dispo: 'Tes dates', time: Date.now(),
