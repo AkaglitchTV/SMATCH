@@ -119,11 +119,11 @@ const SMATCH_ACTIVITY_TERRAINS = {
 };
 
 /**
- * Recherche fuzzy groupée par pays, filtrée par terrains de l'activité.
+ * [PRIVÉ] Recherche fuzzy locale groupée par pays, filtrée par terrains de l'activité.
  * @param {string} query
  * @param {string[]} [terrains] - terrains requis (au moins un en commun). Vide/null = pas de filtre.
  */
-function smatchSearchCities(query, terrains, maxPerCountry, maxTotal) {
+function _smatchSearchLocal(query, terrains, maxPerCountry, maxTotal) {
   maxPerCountry = maxPerCountry || 6;
   maxTotal = maxTotal || 40;
   const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -160,6 +160,96 @@ function smatchSearchCities(query, terrains, maxPerCountry, maxTotal) {
   return results;
 }
 
+// ─── Nominatim (OpenStreetMap) ─────────────────────────────────────────────
+
+const _nominatimCache = Object.create(null);
+
+function _ccToFlag(cc) {
+  if (!cc || cc.length !== 2) return '🌍';
+  const b = 0x1F1E6 - 65;
+  return String.fromCodePoint(b + cc.toUpperCase().charCodeAt(0),
+                               b + cc.toUpperCase().charCodeAt(1));
+}
+
+async function _fetchNominatim(query) {
+  const key = query.toLowerCase();
+  if (_nominatimCache[key]) return _nominatimCache[key];
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=8'
+    + '&featuretype=settlement&addressdetails=1&accept-language=fr'
+    + '&q=' + encodeURIComponent(query);
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const data = await r.json();
+    _nominatimCache[key] = data;
+    return data;
+  } catch (e) { return []; }
+}
+
+function _nominatimToGroups(data) {
+  const byCountry = Object.create(null);
+  // Charge les coords déjà en cache et enrichit avec les nouvelles
+  let extraCoords = {};
+  try { extraCoords = JSON.parse(localStorage.getItem('snm_extra_coords') || '{}'); } catch (e) {}
+
+  for (const item of data) {
+    const cc = (item.address && item.address.country_code) || '';
+    const countryName = (item.address && item.address.country) || 'Monde';
+    const key = _ccToFlag(cc) + ' ' + countryName;
+    if (!byCountry[key]) byCountry[key] = [];
+    const city = (item.address && (item.address.city || item.address.town
+                  || item.address.municipality || item.address.village))
+                 || item.display_name.split(',')[0].trim();
+    if (city) {
+      if (!byCountry[key].includes(city)) byCountry[key].push(city);
+      // Stocke les coordonnées pour _smatchGeoScore (via snm_extra_coords)
+      if (item.lat && item.lon) {
+        extraCoords[city.toLowerCase().trim()] = [parseFloat(item.lat), parseFloat(item.lon)];
+      }
+    }
+  }
+
+  try { localStorage.setItem('snm_extra_coords', JSON.stringify(extraCoords)); } catch (e) {}
+
+  return Object.entries(byCountry).map(([country, cities]) =>
+    ({ country, cities, topScore: 2 })
+  );
+}
+
+/**
+ * Recherche asynchrone : locale (filtrée terrain) + enrichissement Nominatim mondial.
+ * Même format de retour que smatchSearchCities : [{country, cities, topScore}].
+ */
+async function smatchSearchCitiesAsync(query, terrains, maxPerCountry, maxTotal) {
+  maxPerCountry = maxPerCountry || 6;
+  const nq = (query || '').trim();
+  if (nq.length < 2) return _smatchSearchLocal(query, terrains, maxPerCountry, maxTotal);
+  const [localGroups, nominatimData] = await Promise.all([
+    Promise.resolve(_smatchSearchLocal(query, terrains, maxPerCountry, maxTotal)),
+    _fetchNominatim(nq)
+  ]);
+  const nominatimGroups = _nominatimToGroups(nominatimData);
+  if (!nominatimGroups.length) return localGroups;
+  const localCities = new Set(localGroups.flatMap(g => g.cities));
+  const merged = [...localGroups];
+  for (const ng of nominatimGroups) {
+    const newCities = ng.cities.filter(c => !localCities.has(c));
+    if (!newCities.length) continue;
+    const existing = merged.find(g => g.country === ng.country);
+    if (existing) {
+      existing.cities = [...new Set([...existing.cities, ...newCities])].slice(0, maxPerCountry);
+    } else {
+      merged.push({ country: ng.country, cities: newCities, topScore: ng.topScore });
+    }
+  }
+  return merged;
+}
+
+// smatchSearchCities conservé synchrone pour compatibilité (résultats locaux uniquement)
+function smatchSearchCities(query, terrains, maxPerCountry, maxTotal) {
+  return _smatchSearchLocal(query, terrains, maxPerCountry, maxTotal);
+}
+
 // Donne les terrains d'une activité (pour le filtre)
 function smatchActivityTerrains(actId) {
   return SMATCH_ACTIVITY_TERRAINS[actId] || null;
@@ -168,6 +258,7 @@ function smatchActivityTerrains(actId) {
 if (typeof window !== 'undefined') {
   window.SMATCH_CITIES = SMATCH_CITIES;
   window.smatchSearchCities = smatchSearchCities;
+  window.smatchSearchCitiesAsync = smatchSearchCitiesAsync;
   window.SMATCH_ACTIVITY_TERRAINS = SMATCH_ACTIVITY_TERRAINS;
   window.smatchActivityTerrains = smatchActivityTerrains;
 }

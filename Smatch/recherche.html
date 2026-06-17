@@ -393,34 +393,75 @@
 // ════════════════════════════════════════════════════════════
 let _lieuActiveIdx = -1;
 let _lieuFlatItems = [];
+let _lieuDebounceTimer = null;
 
-function onLieuInput() {
-  const inp = document.getElementById('inp-lieu');
+function _renderLieuGroups(groups, q, AC, terrains) {
   const box = document.getElementById('lieu-suggest');
-  if (!inp || !box || typeof smatchSearchCities !== 'function') return;
-  const q = inp.value;
-  const isEte = (localStorage.getItem('snm_mode') || 'hiver') === 'ete';
-  const AC = isEte ? '#fbbf24' : '#22d3ee';
-  // Filtre par l'activité sélectionnée (terrains compatibles)
-  let terrains = null;
-  if (typeof selectedAct !== 'undefined' && selectedAct && typeof smatchActivityTerrains === 'function') {
-    terrains = smatchActivityTerrains(selectedAct.id);
-  }
-  const groups = smatchSearchCities(q, terrains, 6, 40);
+  if (!box) return;
   _lieuActiveIdx = -1;
   _lieuFlatItems = [];
 
   if (!groups.length) {
     const actName = (typeof selectedAct !== 'undefined' && selectedAct) ? selectedAct.name : '';
     const msg = (terrains && q.trim())
-      ? `Aucune ville pour « ${q} » adaptée à ${actName} 🗺️`
-      : (terrains ? `Choisis d'abord une ville adaptée à ${actName}` : `Aucune ville trouvée pour « ${q} » 🗺️`);
+      ? `Aucune ville pour « ${q} » adaptée à ${actName} 🗺️`
+      : (terrains ? `Choisis d\'abord une ville adaptée à ${actName}` : `Aucune ville trouvée pour « ${q} » 🗺️`);
     box.innerHTML = `<div style="padding:.9rem 1rem;font-size:.78rem;color:#475569;">${msg}</div>`;
     box.style.display = 'block';
     positionLieuSuggest();
     return;
   }
 
+  let html = '';
+  groups.forEach(g => {
+    html += `<div style="padding:.5rem 1rem .3rem;font-size:.62rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;background:rgba(8,12,24,.99);">${g.country}</div>`;
+    g.cities.forEach(city => {
+      const idx = _lieuFlatItems.length;
+      _lieuFlatItems.push(city);
+      let display = city;
+      if (q.trim()) {
+        const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        const pos = norm(city).indexOf(norm(q.trim()));
+        if (pos >= 0) {
+          const end = pos + q.trim().length;
+          display = city.slice(0,pos) + `<span style="color:${AC};font-weight:800;">` + city.slice(pos,end) + `</span>` + city.slice(end);
+        }
+      }
+      html += `<button type="button" data-idx="${idx}" onclick="selectLieu('${city.replace(/'/g,"\\'")}')" onmouseenter="setLieuActive(${idx})" class="lieu-item" style="width:100%;text-align:left;padding:.55rem 1rem;background:none;border:none;cursor:pointer;font-size:.82rem;color:#e2e8f0;display:flex;align-items:center;gap:.55rem;transition:background .12s;">
+        <i class="fa-solid fa-location-dot" style="color:#475569;font-size:.72rem;"></i> <span>${display}</span>
+      </button>`;
+    });
+  });
+  box.innerHTML = html;
+  box.style.display = 'block';
+  positionLieuSuggest();
+}
+
+function onLieuInput() {
+  const inp = document.getElementById('inp-lieu');
+  if (!inp || typeof smatchSearchCities !== 'function') return;
+  const q = inp.value;
+  const isEte = (localStorage.getItem('snm_mode') || 'hiver') === 'ete';
+  const AC = isEte ? '#fbbf24' : '#22d3ee';
+  let terrains = null;
+  if (typeof selectedAct !== 'undefined' && selectedAct && typeof smatchActivityTerrains === 'function') {
+    terrains = smatchActivityTerrains(selectedAct.id);
+  }
+
+  // Phase 1 — résultats locaux immédiats (0 ms, filtrés par terrain)
+  _renderLieuGroups(smatchSearchCities(q, terrains, 6, 40), q, AC, terrains);
+
+  // Phase 2 — enrichissement Nominatim avec debounce 350 ms (requête ≥ 2 chars)
+  clearTimeout(_lieuDebounceTimer);
+  if ((q || '').trim().length >= 2 && typeof smatchSearchCitiesAsync === 'function') {
+    _lieuDebounceTimer = setTimeout(async () => {
+      if ((document.getElementById('inp-lieu') || {}).value !== q) return;
+      const enriched = await smatchSearchCitiesAsync(q, terrains, 6, 40);
+      if ((document.getElementById('inp-lieu') || {}).value !== q) return;
+      _renderLieuGroups(enriched, q, AC, terrains);
+    }, 350);
+  }
+  return; /* dead code — never executes:
   let html = '';
   groups.forEach(g => {
     html += `<div style="padding:.5rem 1rem .3rem;font-size:.62rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;background:rgba(8,12,24,.99);">${g.country}</div>`;
@@ -444,7 +485,7 @@ function onLieuInput() {
   });
   box.innerHTML = html;
   box.style.display = 'block';
-  positionLieuSuggest();
+  positionLieuSuggest(); */
 }
 
 // Positionne la liste (position:fixed) juste sous le champ, alignée à sa largeur

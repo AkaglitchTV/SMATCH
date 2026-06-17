@@ -456,8 +456,13 @@ const SMATCH_CITY_COORDS = {
 
 function _smatchGeoScore(cityA, cityB) {
   if (!cityA || !cityB) return 60;
-  const a = SMATCH_CITY_COORDS[cityA.toLowerCase().trim()];
-  const b = SMATCH_CITY_COORDS[cityB.toLowerCase().trim()];
+  const _lookupCoord = c => {
+    const k = c.toLowerCase().trim();
+    if (SMATCH_CITY_COORDS[k]) return SMATCH_CITY_COORDS[k];
+    try { const x = JSON.parse(localStorage.getItem('snm_extra_coords') || '{}'); return x[k] || null; } catch (e) { return null; }
+  };
+  const a = _lookupCoord(cityA);
+  const b = _lookupCoord(cityB);
   if (!a || !b) return 60;
   // Distance haversine simplifiée (km)
   const R = 6371, dLat = (b[0]-a[0])*Math.PI/180, dLon = (b[1]-a[1])*Math.PI/180;
